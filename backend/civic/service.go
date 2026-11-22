@@ -1,6 +1,7 @@
 package civic
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"os"
@@ -82,6 +83,7 @@ func LoadOrganizationConfigFromFile(path string) (OrganizationConfig, error) {
 	if err != nil {
 		return OrganizationConfig{}, errors.New("failed to read organization config file (" + path + "): provide a valid config file or complete setup in the GUI")
 	}
+	raw = bytes.TrimPrefix(raw, []byte{0xEF, 0xBB, 0xBF})
 	var cfg OrganizationConfig
 	if err := json.Unmarshal(raw, &cfg); err != nil {
 		return OrganizationConfig{}, errors.New("invalid JSON in organization config file: " + err.Error())
