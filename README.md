@@ -1,19 +1,19 @@
-# Cardano eUTxO Milestone Escrow & Subasta SDK (`WaysToBuildIt`)
+# Base L2 Milestone Escrow & Subasta SDK (`WaysToBuildIt`)
 
-An open-source, domain-agnostic **Cardano Plutus V3 (Aiken) + Go SDK and Reference Framework** for milestone-based escrow, collision-free batch auctions (*Subastas*), double-satisfaction prevention, and cryptographic deliverable verification.
+An open-source, domain-agnostic **Base L2 (Solidity) + Go SDK and Reference Framework** for milestone-based escrow, sealed-bid charity auctions (*Subastas*), reentrancy-protected disbursements, and cryptographic deliverable verification.
 
 > **Central Principle:** *Funds are released according to verifiable agreements, not simply because someone requests payment.*
 
-> **Developer Tooling & SDK Architecture:** Built as a reusable, zero-dependency Go domain engine (`backend/escrow/`, `backend/adapters/`) and Aiken Plutus V3 validator suite (`contracts/cardano/`) so any Cardano dApp developer can integrate multi-stage escrow, 2-of-3 key rotation, anti-trojan evidence hashing, and collision-free sealed-bid auctions without writing custom eUTxO plumbing from scratch. Includes a complete Reference Civic Application (`backend/civic/`, `frontend/`).
+> **Developer Tooling & SDK Architecture:** Built as a reusable, zero-dependency Go domain engine (`backend/escrow/`, `backend/adapters/`) and Base L2 Solidity smart contract (`contracts/base/MilestoneEscrow.sol`) so any Base developer or municipality can integrate multi-stage escrow, 2-of-3 key rotation, anti-trojan evidence hashing, and sealed-bid auctions. Includes a complete Reference Civic Application (`backend/civic/`, `frontend/`) live at **`https://base.waystobuildit.com`**.
 
 ---
 
 ## Architectural Overview
 
-Cardano Milestone Escrow is architected as a **generic milestone-based escrow engine** paired with a **dynamically configurable civic/organization application layer**:
+Base Milestone Escrow is architected as a **generic milestone-based escrow engine** paired with a **dynamically configurable civic/organization application layer**:
 
-1. **Generic Escrow Core (`backend/escrow/`, `contracts/cardano/`):**
-   - Domain-agnostic state machine and Cardano eUTxO validators written in **Aiken**.
+1. **Generic Escrow Core (`backend/escrow/`, `contracts/base/`):**
+   - Domain-agnostic state machine and Base L2 Solidity smart contract (`MilestoneEscrow.sol`) with `nonReentrant` and Checks-Effects-Interactions guards.
    - Enforces multi-source funding, separation of duties (Sponsor/Client, Administrator, Contractor, Independent Verifier/Inspector, Arbiter), evidence-hash verification, dispute freezes, and exact asset conservation.
 2. **Configurable Civic, Marketplace & Treasury Domain Module (`backend/`):**
    - Supports **three transparent collection avenues**:
@@ -41,7 +41,7 @@ Cardano Milestone Escrow is architected as a **generic milestone-based escrow en
 | [`config/organization.json`](config/organization.json) | External dynamic organization config |
 | [`config/demo_seed.json`](config/demo_seed.json) | External demonstration seed data |
 | [`backend/`](backend/) | Go escrow engine (`escrow/`), anti-trojan & fiat bridge (`adapters/`), civic service (`civic/`), and HTTP server (`cmd/server/`) |
-| [`contracts/cardano/`](contracts/cardano/README.md) | Cardano Aiken validators ([`escrow.ak`](contracts/cardano/validators/escrow.ak) & [`subasta_and_fund.ak`](contracts/cardano/validators/subasta_and_fund.ak)) |
+| [`contracts/base/`](contracts/base/README.md) | Base L2 Solidity smart contract ([`MilestoneEscrow.sol`](contracts/base/MilestoneEscrow.sol)) |
 | [`frontend/`](frontend/README.md) | Standalone bilingual (`es-CR` / `en`) civic transparency & project management interface |
 
 ---

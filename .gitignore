@@ -26,3 +26,6 @@ data/
 *.exe
 backend/server
 scripts/switch-grant-mode.ps1
+scripts/sync-and-deploy.ps1
+frontend/assets/*.pdf
+wrangler.jsonc

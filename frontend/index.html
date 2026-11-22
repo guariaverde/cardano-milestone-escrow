@@ -1172,11 +1172,13 @@
       const effectiveRole = (role === "giver" && !citizenSessionToken && (sessionTokens.sysadmin || sessionTokens.committee))
         ? fallbackStaffRole
         : role;
+      const urlChain = new URLSearchParams(window.location.search).get("chain") || "";
       return {
         "Content-Type": "application/json",
         "X-Role": effectiveRole,
         "X-Role-Token": sessionTokens[effectiveRole] || "",
-        "X-Citizen-Token": citizenSessionToken || ""
+        "X-Citizen-Token": citizenSessionToken || "",
+        "X-Chain-Mode": urlChain
       };
     }
 
