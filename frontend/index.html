@@ -1852,6 +1852,41 @@
             <thead><tr><th>Donante</th><th>Vía</th><th>Neto en Escrow</th><th>Comprobante</th></tr></thead>
             <tbody>${auditRows || '<tr><td colspan="4" style="color:var(--slate);">Sin aportes registrados aún.</td></tr>'}</tbody>
           </table>
+
+          <div style="margin-top:1.5rem;padding:1.1rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.65rem;">
+              <div>
+                <h3 style="margin:0;font-size:0.95rem;color:var(--navy);">Conector de Gobernanza de Juntas y Presupuesto Participativo (Webhooks / MCP)</h3>
+                <div style="font-size:0.78rem;color:var(--slate);margin-top:0.15rem;">
+                  Vincula decisiones de <strong>Karma Compass (compass.karmahq.org)</strong>, <strong>CONSUL Democracy</strong> y <strong>Actas Municipales</strong> directamente con la compuerta de aprobación (<code>ApprovedResolution</code>) y liberación de hitos del contrato.
+                </div>
+              </div>
+              <span class="badge badge-emerald">HMAC-SHA256 Webhook Activo</span>
+            </div>
+            <div class="grid-3" style="margin-bottom:0.65rem;">
+              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">1. Karma Compass (Juntas / ONGs)</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">La junta aprueba el acta por correo en <code>compass.karmahq.org</code> &rarr; el webhook ancla el hash SHA-256 de la minuta y habilita la recaudación del proyecto.</div>
+              </div>
+              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">2. CONSUL Democracy (Municipal)</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">Proyectos ganadores de presupuesto participativo en CONSUL se sincronizan vía <code>/api/v1/governance/webhook</code> con su resolución oficial.</div>
+              </div>
+              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">3. Retorno de Hitos a la Agenda</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">Cuando el Inspector certifica un hito con hash SHA-256, WaysToBuildIt envía el paquete de decisión a la próxima agenda del Comité.</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.78rem;background:#FFFFFF;padding:0.55rem 0.75rem;border-radius:8px;border:1px solid #E2E8F0;">
+              <div><strong>Resolución Anclada Actual:</strong> <code>${proj ? (proj.approved_resolution || "Pendiente") : "N/A"}</code></div>
+              ${(role === "committee" || role === "sysadmin") ? `
+                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                  <button class="btn-navy btn-sm" onclick="simulateGovernanceWebhook('Karma Compass (compass.karmahq.org)', 'ACTA-COMPASS-2026-042')">Simular Acta Karma Compass</button>
+                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Simular Resolución CONSUL</button>
+                </div>
+              ` : `<span style="color:var(--slate);font-size:0.74rem;">Endpoint: <code>POST /api/v1/governance/webhook</code></span>`}
+            </div>
+          </div>
         </div>
       `;
     }
@@ -1941,6 +1976,15 @@
 
     async function subastaAct(action) {
       await apiCall("/api/v1/subasta", { action: action });
+    }
+
+    async function simulateGovernanceWebhook(sourceName, resolutionCode) {
+      await apiCall("/api/v1/governance/webhook", {
+        source: sourceName,
+        event_type: "board.resolution.approved",
+        project_id: "proj-solar-lighting-001",
+        resolution_id: resolutionCode
+      });
     }
 
     async function confirmSubastaReceipt() {

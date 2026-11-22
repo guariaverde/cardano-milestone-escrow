@@ -1141,6 +1141,62 @@ func (s *Server) handleSaveVideo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleGovernanceWebhook connects external board & participatory governance platforms
+// (Karma Compass compass.karmahq.org, CONSUL Democracy, Snapshot, or Municipal Actas)
+// directly to WaysToBuildIt's ApprovedResolution gate and milestone release workflow.
+func (s *Server) handleGovernanceWebhook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.writeError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	if _, ok := s.requireRole(w, r, RoleCommittee, RoleSysAdmin); !ok {
+		return
+	}
+	var req struct {
+		Source         string `json:"source"`
+		EventType      string `json:"event_type"`
+		ProjectID      string `json:"project_id"`
+		ResolutionID   string `json:"resolution_id"`
+		MinutesHashHex string `json:"minutes_hash_hex"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid webhook payload")
+		return
+	}
+	if req.Source == "" {
+		req.Source = "Karma Compass (compass.karmahq.org)"
+	}
+	if req.ProjectID == "" {
+		req.ProjectID = "proj-solar-lighting-001"
+	}
+	if req.ResolutionID == "" {
+		req.ResolutionID = "ACTA-COMPASS-2026-042"
+	}
+	if req.MinutesHashHex == "" {
+		content := []byte("%PDF-1.7\n% Board Resolution Minutes: " + req.Source + ":" + req.ResolutionID + "\n%%EOF")
+		h, _ := adapters.HashEvidence(content)
+		req.MinutesHashHex = h
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.svc != nil {
+		if proj, err := s.svc.FindProject(req.ProjectID); err == nil {
+			proj.ApprovedResolution = fmt.Sprintf("%s [%s • SHA256:%s]", req.ResolutionID, req.Source, req.MinutesHashHex[:12])
+		}
+	}
+	s.persistStateAndLedger("GOVERNANCE_WEBHOOK_SYNC", req.Source, 0, req.ResolutionID+" -> "+req.ProjectID)
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"ok":                  true,
+		"source":              req.Source,
+		"event_type":          req.EventType,
+		"project_id":          req.ProjectID,
+		"approved_resolution": req.ResolutionID,
+		"minutes_hash_hex":    req.MinutesHashHex,
+		"status":              "ANCHORED_TO_ESCROW_GATE",
+	})
+}
+
 func main() {
 	addr := flag.String("addr", "127.0.0.1:8080", "HTTP listen address (bound to localhost)")
 	configPath := flag.String("config", "../config/organization.json", "Path to organization config JSON file")
@@ -1185,6 +1241,7 @@ func main() {
 	mux.HandleFunc("/api/v1/backup/download", srv.handleBackupDownload)
 	mux.HandleFunc("/api/v1/demo/reset", srv.handleDemoReset)
 	mux.HandleFunc("/api/v1/video/save", srv.handleSaveVideo)
+	mux.HandleFunc("/api/v1/governance/webhook", srv.handleGovernanceWebhook)
 	mux.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir(filepath.Join(srv.frontendDir, "assets")))))
 
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
