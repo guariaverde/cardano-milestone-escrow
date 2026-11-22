@@ -1,0 +1,57 @@
+{
+  "projects": [
+    {
+      "id": "proj-solar-lighting-001",
+      "title_es": "Proyecto de Iluminación Solar para Parques Públicos",
+      "title_en": "Solar-Powered Public Park Lighting Project",
+      "location_es": "Parques Públicos del Cantón (Piloto Comunitario)",
+      "location_en": "Municipal Public Parks (Community Pilot)",
+      "contractor_display_name": "Taller Eléctrico y Solar Don Carlos (Pago Asistido SINPE)",
+      "contractor_key": "taller_solar_don_carlos_key",
+      "inspector_display_name": "Ing. Dan Morales — Inspector Técnico Independiente",
+      "verifier_key": "inspector_municipal_dan_key",
+      "arbiter_key": "colegio_ingenieros_arbiter_key",
+      "approved_resolution": "RES-2026-042",
+      "milestones": [
+        {
+          "amount": 400,
+          "title_es": "Hito 1: Cimientos, Postes Galvanizados y Cableado Subterráneo",
+          "title_en": "Milestone 1: Foundations, Galvanized Poles & Underground Wiring",
+          "description_es": "Instalación de 12 bases de concreto y postes solares certificados.",
+          "description_en": "Installation of 12 concrete foundations and certified solar poles."
+        },
+        {
+          "amount": 600,
+          "title_es": "Hito 2: Luminarias LED Solares, Baterías y Prueba Fotométrica Nocturna",
+          "title_en": "Milestone 2: Solar LED Luminaires, Batteries & Nighttime Lux Testing",
+          "description_es": "Montaje de paneles fotovoltaicos, luminarias LED y verificación de iluminación.",
+          "description_en": "Mounting of photovoltaic panels, LED fixtures, and nighttime lux inspection."
+        }
+      ],
+      "in_kind_contributions": [
+        {
+          "contributor_alias": "Ferretería Comunitaria El Sol",
+          "description_es": "Paneles solares monocristalinos de 400W certificados",
+          "description_en": "Certified 400W Monocrystalline Solar Panels",
+          "quantity": 4,
+          "unit": "unidades / units",
+          "verified_by": "inspector_municipal_dan_key",
+          "evidence_hash": "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+        }
+      ]
+    }
+  ],
+  "subastas": [
+    {
+      "id": "subasta-bike-001",
+      "title_es": "Bicicleta de Montaña Donada para el Fondo Común",
+      "title_en": "Donated Mountain Bike for the Community Public Fund",
+      "description_es": "Inspeccionada y custodiada por la organización. El pago del ganador queda en garantía (Escrow) hasta verificar la entrega física; los demás postores reciben reembolso automático.",
+      "description_en": "Inspected and held by the organization. Winner's payment stays in Escrow until physical delivery is verified; all other bidders are automatically refunded.",
+      "item_donor": "ciclo_comunidad_donor",
+      "mode": "blind_subasta",
+      "minimum_price": 50,
+      "inspection_hash": "sha256:8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4"
+    }
+  ]
+}

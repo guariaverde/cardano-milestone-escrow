@@ -1,0 +1,16 @@
+name = "milestone-escrow/cardano"
+version = "0.1.0"
+compiler = "v1.1.0"
+plutus = "v3"
+license = "Apache-2.0"
+description = "Cardano Aiken smart contracts for Milestone Escrow, Subasta Item Delivery Escrow, and Committee Public Fund"
+
+[repository]
+user = "jabri"
+project = "milestone-escrow"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v2.1.0"
+source = "github"

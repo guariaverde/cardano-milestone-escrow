@@ -1,0 +1,15 @@
+# Cloudflare Named Tunnel Configuration for waystobuildit.com
+# Usage:
+#   1. cloudflared tunnel login
+#   2. cloudflared tunnel create waystobuildit
+#   3. cloudflared tunnel route dns waystobuildit waystobuildit.com
+#   4. cloudflared tunnel route dns waystobuildit www.waystobuildit.com
+#   5. cloudflared tunnel --config config/cloudflared-waystobuildit.yml run waystobuildit
+
+tunnel: waystobuildit
+ingress:
+  - hostname: waystobuildit.com
+    service: http://127.0.0.1:8080
+  - hostname: www.waystobuildit.com
+    service: http://127.0.0.1:8080
+  - service: http_status:404

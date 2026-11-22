@@ -1,0 +1,33 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-21T23:55:00Z",
+    "component": {
+      "type": "application",
+      "name": "waystobuildit-cardano-milestone-escrow",
+      "version": "1.0.0",
+      "supplier": {
+        "name": "Guaria Verde",
+        "url": ["https://guariaverde.com", "https://waystobuildit.com"],
+        "contact": [{ "email": "grants@guariaverde.com" }]
+      },
+      "licenses": [{ "license": { "id": "Apache-2.0" } }]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "golang-stdlib",
+      "version": "1.22+",
+      "description": "Zero external runtime dependencies in Go backend (100% Go standard library for minimized supply-chain attack surface)"
+    },
+    {
+      "type": "library",
+      "name": "aiken-stdlib",
+      "version": "v2 (Plutus V3)",
+      "description": "Cardano Aiken smart contract standard library (contracts/cardano/aiken.toml)"
+    }
+  ]
+}

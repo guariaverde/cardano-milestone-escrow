@@ -1,0 +1,18 @@
+﻿{
+    "tenant_id":  "org-montes-de-oca-pilot",
+    "organization_name":  "Municipalidad de Montes de Oca",
+    "jurisdiction_label":  "Montes de Oca, San JosÃ©, Costa Rica",
+    "default_locale":  "es-CR",
+    "allowed_currencies":  [
+                               "CRC",
+                               "USD"
+                           ],
+    "exchange_rate_crc_per_usd":  512,
+    "exchange_rate_source":  "Banco Central de Costa Rica (BCCR â€” Referencia MONEX)",
+    "exchange_rate_updated_at":  "2026-11-20",
+    "committee_account":  "committee_multisig_key",
+    "disburser_account":  "org_sinpe_disburser_key",
+    "hosting_fee_bps":  100,
+    "hosting_period_cap":  15,
+    "chain_display_mode":  "cardano"
+}

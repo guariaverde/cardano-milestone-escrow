@@ -1,0 +1,28 @@
+# Cloudflare Tunnel credentials & certificates (NEVER commit!)
+cloudflare/
+*.pem
+.cloudflared/
+
+# Private course lessons, grant strategy, pitches & internal AI agent rules (NEVER publish to public GitHub!)
+private_docs/
+docs/LESSON_*.md
+docs/GRANT_STRATEGY.md
+docs/STAKEHOLDER_AND_GRANT_PITCH.md
+docs/PROJECT_FOCUS.md
+docs/DECISIONS.md
+.agents/
+**/AGENTS.md
+
+# Persistent runtime ledger & backups
+data/
+
+# Wallet signing keys & environment secrets
+*.skey
+.env
+.env.*
+!.env.example
+
+#Compiled binaries & internal mode switcher
+*.exe
+backend/server
+scripts/switch-grant-mode.ps1
