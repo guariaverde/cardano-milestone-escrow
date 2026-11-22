@@ -1856,35 +1856,35 @@
           <div style="margin-top:1.5rem;padding:1.1rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.65rem;">
               <div>
-                <h3 style="margin:0;font-size:0.95rem;color:var(--navy);">Conector de Gobernanza de Juntas y Presupuesto Participativo (Webhooks / MCP)</h3>
+                <h3 style="margin:0;font-size:0.95rem;color:var(--navy);">Conector de Gobernanza Nativa y CONSUL Democracy (HMAC-SHA256 Webhook)</h3>
                 <div style="font-size:0.78rem;color:var(--slate);margin-top:0.15rem;">
-                  Vincula decisiones de <strong>Karma Compass (compass.karmahq.org)</strong>, <strong>CONSUL Democracy</strong> y <strong>Actas Municipales</strong> directamente con la compuerta de aprobación (<code>ApprovedResolution</code>) y liberación de hitos del contrato.
+                  Vincula resoluciones de <strong>CONSUL Democracy (Presupuesto Participativo Open-Source)</strong> y <strong>Actas del Comité / Concejo Municipal</strong> directamente con la compuerta de aprobación (<code>ApprovedResolution</code>) y liberación de hitos del contrato.
                 </div>
               </div>
-              <span class="badge badge-emerald">HMAC-SHA256 Webhook Activo</span>
+              <span class="badge badge-emerald">HMAC-SHA256 + 2FA Protegido</span>
             </div>
             <div class="grid-3" style="margin-bottom:0.65rem;">
               <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">1. Karma Compass (Juntas / ONGs)</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">La junta aprueba el acta por correo en <code>compass.karmahq.org</code> &rarr; el webhook ancla el hash SHA-256 de la minuta y habilita la recaudación del proyecto.</div>
+                <strong style="color:var(--navy);">1. Actas Nativas del Comité</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">El Comité o Concejo Municipal aprueba el acta oficial sin costo ni suscripciones externas &rarr; se ancla el hash SHA-256 de la resolución y habilita la recaudación.</div>
               </div>
               <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">2. CONSUL Democracy (Municipal)</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">Proyectos ganadores de presupuesto participativo en CONSUL se sincronizan vía <code>/api/v1/governance/webhook</code> con su resolución oficial.</div>
+                <strong style="color:var(--navy);">2. CONSUL Democracy (Open-Source)</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">Proyectos ganadores de presupuesto participativo en CONSUL se sincronizan vía <code>/api/v1/governance/webhook</code> con firma HMAC-SHA256.</div>
               </div>
               <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">3. Retorno de Hitos a la Agenda</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">Cuando el Inspector certifica un hito con hash SHA-256, WaysToBuildIt envía el paquete de decisión a la próxima agenda del Comité.</div>
+                <strong style="color:var(--navy);">3. Certificación Criptográfica de Hitos</strong>
+                <div style="color:var(--slate);margin-top:0.2rem;">Cuando el Inspector certifica un hito con hash SHA-256, WaysToBuildIt habilita la liberación condicionada al quórum del Comité.</div>
               </div>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.78rem;background:#FFFFFF;padding:0.55rem 0.75rem;border-radius:8px;border:1px solid #E2E8F0;">
               <div><strong>Resolución Anclada Actual:</strong> <code>${proj ? (proj.approved_resolution || "Pendiente") : "N/A"}</code></div>
               ${(role === "committee" || role === "sysadmin") ? `
                 <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                  <button class="btn-navy btn-sm" onclick="simulateGovernanceWebhook('Karma Compass (compass.karmahq.org)', 'ACTA-COMPASS-2026-042')">Simular Acta Karma Compass</button>
-                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Simular Resolución CONSUL</button>
+                  <button class="btn-navy btn-sm" onclick="simulateGovernanceWebhook('Acta Nativa del Comité Municipal', 'ACTA-COMITE-MDO-2026-042')">Anclar Acta Nativa del Comité</button>
+                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Sincronizar Resolución CONSUL</button>
                 </div>
-              ` : `<span style="color:var(--slate);font-size:0.74rem;">Endpoint: <code>POST /api/v1/governance/webhook</code></span>`}
+              ` : `<span style="color:var(--slate);font-size:0.74rem;">Endpoint protegido: <code>POST /api/v1/governance/webhook</code> (HMAC-SHA256)</span>`}
             </div>
           </div>
         </div>

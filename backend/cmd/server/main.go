@@ -1141,9 +1141,8 @@ func (s *Server) handleSaveVideo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleGovernanceWebhook connects external board & participatory governance platforms
-// (Karma Compass compass.karmahq.org, CONSUL Democracy, Snapshot, or Municipal Actas)
-// directly to WaysToBuildIt's ApprovedResolution gate and milestone release workflow.
+// handleGovernanceWebhook connects external participatory governance platforms
+// (CONSUL Democracy or Municipal Actas) directly to WaysToBuildIt's ApprovedResolution gate.
 // Security: Enforces EITHER (1) constant-time HMAC-SHA256 webhook signature verification
 // (X-Webhook-Signature: hmac-sha256:<hex>) using WEBHOOK_HMAC_SECRET, OR (2) authenticated
 // Committee / SysAdmin 2FA session token, plus strict 64KB body cap and replay-safe resolution ID checks.
@@ -1186,13 +1185,13 @@ func (s *Server) handleGovernanceWebhook(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if req.Source == "" {
-		req.Source = "Karma Compass (compass.karmahq.org)"
+		req.Source = "CONSUL Democracy (Presupuesto Participativo)"
 	}
 	if req.ProjectID == "" {
 		req.ProjectID = "proj-solar-lighting-001"
 	}
 	if req.ResolutionID == "" {
-		req.ResolutionID = "ACTA-COMPASS-2026-042"
+		req.ResolutionID = "RES-CONSUL-MDO-2026-089"
 	}
 	if req.MinutesHashHex == "" {
 		content := []byte("%PDF-1.7\n% Board Resolution Minutes: " + req.Source + ":" + req.ResolutionID + "\n%%EOF")
