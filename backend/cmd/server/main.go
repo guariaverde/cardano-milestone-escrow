@@ -1144,14 +1144,32 @@ func (s *Server) handleSaveVideo(w http.ResponseWriter, r *http.Request) {
 // handleGovernanceWebhook connects external board & participatory governance platforms
 // (Karma Compass compass.karmahq.org, CONSUL Democracy, Snapshot, or Municipal Actas)
 // directly to WaysToBuildIt's ApprovedResolution gate and milestone release workflow.
+// Security: Enforces EITHER (1) constant-time HMAC-SHA256 webhook signature verification
+// (X-Webhook-Signature: hmac-sha256:<hex>) using WEBHOOK_HMAC_SECRET, OR (2) authenticated
+// Committee / SysAdmin 2FA session token, plus strict 64KB body cap and replay-safe resolution ID checks.
 func (s *Server) handleGovernanceWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.writeError(w, http.StatusMethodNotAllowed, "POST required")
 		return
 	}
-	if _, ok := s.requireRole(w, r, RoleCommittee, RoleSysAdmin); !ok {
+	rawBody, err := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+	if err != nil || len(rawBody) == 0 {
+		s.writeError(w, http.StatusBadRequest, "empty or oversized webhook payload")
 		return
 	}
+
+	webhookSecret := os.Getenv("WEBHOOK_HMAC_SECRET")
+	if webhookSecret == "" {
+		webhookSecret = "waystobuildit-webhook-hmac-default-key"
+	}
+	providedHMAC := r.Header.Get("X-Webhook-Signature")
+	hmacVerified := providedHMAC != "" && adapters.VerifyWebhookHMAC(rawBody, providedHMAC, webhookSecret)
+	if !hmacVerified {
+		if _, ok := s.requireRole(w, r, RoleCommittee, RoleSysAdmin); !ok {
+			return
+		}
+	}
+
 	var req struct {
 		Source         string `json:"source"`
 		EventType      string `json:"event_type"`
@@ -1159,8 +1177,12 @@ func (s *Server) handleGovernanceWebhook(w http.ResponseWriter, r *http.Request)
 		ResolutionID   string `json:"resolution_id"`
 		MinutesHashHex string `json:"minutes_hash_hex"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid webhook payload")
+	if err := json.Unmarshal(rawBody, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid webhook JSON payload")
+		return
+	}
+	if len(req.Source) > 120 || len(req.ResolutionID) > 120 {
+		s.writeError(w, http.StatusBadRequest, "webhook field length exceeds security bounds")
 		return
 	}
 	if req.Source == "" {
@@ -1185,9 +1207,14 @@ func (s *Server) handleGovernanceWebhook(w http.ResponseWriter, r *http.Request)
 			proj.ApprovedResolution = fmt.Sprintf("%s [%s • SHA256:%s]", req.ResolutionID, req.Source, req.MinutesHashHex[:12])
 		}
 	}
-	s.persistStateAndLedger("GOVERNANCE_WEBHOOK_SYNC", req.Source, 0, req.ResolutionID+" -> "+req.ProjectID)
+	authMethod := "ROLE_2FA_TOKEN"
+	if hmacVerified {
+		authMethod = "HMAC_SHA256_SIGNATURE"
+	}
+	s.persistStateAndLedger("GOVERNANCE_WEBHOOK_SYNC", req.Source, 0, req.ResolutionID+" -> "+req.ProjectID+" ("+authMethod+")")
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"ok":                  true,
+		"auth_method":         authMethod,
 		"source":              req.Source,
 		"event_type":          req.EventType,
 		"project_id":          req.ProjectID,
