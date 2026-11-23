@@ -597,6 +597,8 @@
     let chainDisplayMode = "cardano"; // "cardano", "base", or "civic"
     let myCommitteeDonations = [];
     let openMilestoneDetails = {};
+    let selectedProjectId = "";
+    let showNewProjectForm = false;
     let appState = null;
 
     function fmtMoney(units) {
@@ -1356,10 +1358,12 @@
       }
     }
 
-    // PAGE 1: GoFundMe-Style Project Campaign Page with Hero Image & Expandable Milestone Details
+    // PAGE 1: GoFundMe-Style Project Campaign Page with Hero Image, Multi-Project Switcher & New Project Creator
     function renderProjectsPage(p) {
-      const proj = p.projects && p.projects[0];
-      if (!proj) return `<div class="card">No hay proyectos activos.</div>`;
+      const allProjects = p.projects || [];
+      if (allProjects.length === 0) return `<div class="card">No hay proyectos activos.</div>`;
+      const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
+      selectedProjectId = proj.id;
       const esc = proj.escrow;
       const totalTarget = esc.Milestones.reduce((acc, m) => acc + m.Amount, 0);
       const funded = esc.FundedAmount;
@@ -1367,6 +1371,61 @@
       const title = lang === "es-CR" ? proj.title_es : proj.title_en;
       const loc = lang === "es-CR" ? proj.location_es : proj.location_en;
       const contribs = esc.Contributions || [];
+
+      const switcherPills = allProjects.map(item => {
+        const isSel = item.id === proj.id;
+        const itemTitle = lang === "es-CR" ? item.title_es : item.title_en;
+        return `<button class="${isSel ? 'btn-navy' : 'btn-chip'}" style="font-size:0.78rem;padding:0.4rem 0.75rem;" onclick="selectActiveProject('${item.id}')">${itemTitle}</button>`;
+      }).join("");
+
+      const canCreateProj = (role === "committee" || role === "sysadmin");
+      const createProjPanelHTML = canCreateProj && showNewProjectForm ? `
+        <div class="card" style="border:2px solid var(--emerald);margin-bottom:1.1rem;background:#F8FAFC;">
+          <h2 style="margin-top:0;font-size:1.05rem;color:var(--navy);">Crear Nuevo Proyecto por Hitos desde Cero (Smart Escrow)</h2>
+          <div class="form-row">
+            <input id="new-proj-title-es" placeholder="Título del Proyecto (ES) — ej. Cancha Techada Polideportiva Comunal" style="flex:2;" />
+            <input id="new-proj-res" placeholder="Resolución / Acta Aprobada — ej. ACTA-COMITE-2026-095" value="ACTA-COMITE-2026-095" style="flex:1;" />
+          </div>
+          <div class="form-row">
+            <input id="new-proj-loc-es" placeholder="Ubicación — ej. San Pedro de Montes de Oca" value="San Pedro de Montes de Oca" style="flex:1;" />
+            <input id="new-proj-contractor" placeholder="Contratista Responsable — ej. Constructora Cívica S.A." value="Constructora e Ingeniería Cívica S.A." style="flex:1;" />
+            <input id="new-proj-inspector" placeholder="Inspector Independiente — ej. Ing. Laura Segura (CFIA)" value="Ing. Laura Segura — Inspectora CFIA" style="flex:1;" />
+          </div>
+          <div style="margin-top:0.5rem;padding:0.7rem;background:#FFFFFF;border-radius:8px;border:1px solid var(--border);">
+            <strong style="font-size:0.82rem;color:var(--navy);">Definición de Hitos Verificables (Montos Enteros en USD):</strong>
+            <div class="form-row" style="margin-top:0.4rem;">
+              <input id="new-m1-title" placeholder="Hito 1: Título" value="Hito 1: Materiales, Nivelación y Cimientos" style="flex:2;" />
+              <input id="new-m1-desc" placeholder="Descripción técnica a inspeccionar" value="Entrega de materiales certificados y fundición de bases." style="flex:2;" />
+              <input id="new-m1-amt" type="number" placeholder="Monto ($)" value="500" style="width:110px;" />
+            </div>
+            <div class="form-row">
+              <input id="new-m2-title" placeholder="Hito 2: Título" value="Hito 2: Instalación Final y Prueba Técnica" style="flex:2;" />
+              <input id="new-m2-desc" placeholder="Descripción técnica a inspeccionar" value="Obra concluida y certificada en sitio por el Inspector." style="flex:2;" />
+              <input id="new-m2-amt" type="number" placeholder="Monto ($)" value="500" style="width:110px;" />
+            </div>
+            <div class="form-row">
+              <input id="new-m3-title" placeholder="Hito 3 (Opcional): Título" style="flex:2;" />
+              <input id="new-m3-desc" placeholder="Descripción técnica (opcional)" style="flex:2;" />
+              <input id="new-m3-amt" type="number" placeholder="Monto ($)" style="width:110px;" />
+            </div>
+          </div>
+          <div class="form-row" style="margin-top:0.65rem;justify-content:flex-end;">
+            <button class="btn-slate" onclick="toggleNewProjectCreator()">Cancelar</button>
+            <button class="btn-emerald" onclick="submitCreateNewProject()">Publicar Proyecto y Abrir Contrato Escrow</button>
+          </div>
+        </div>
+      ` : "";
+
+      const projectSelectorBar = (allProjects.length > 1 || canCreateProj) ? `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.9rem;padding:0.6rem 0.85rem;background:#FFFFFF;border:1px solid var(--border);border-radius:10px;">
+          <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap;">
+            <strong style="font-size:0.78rem;color:var(--slate);margin-right:0.25rem;">PROYECTOS ACTIVOS (${allProjects.length}):</strong>
+            ${switcherPills}
+          </div>
+          ${canCreateProj ? `<button class="btn-emerald btn-sm" onclick="toggleNewProjectCreator()">${showNewProjectForm ? "Cerrar Formulario" : "+ Crear Nuevo Proyecto desde Cero"}</button>` : ""}
+        </div>
+        ${createProjPanelHTML}
+      ` : "";
 
       const milestonesHTML = esc.Milestones.map((m, idx) => {
         const meta = proj.milestone_metadata[idx] || {};
@@ -1549,6 +1608,7 @@
       `;
 
       return `
+        ${projectSelectorBar}
         <div class="campaign-layout">
           <div>
             ${solarParkHeroSVG(loc, proj.approved_resolution)}
@@ -1797,7 +1857,8 @@
 
     // PAGE 5: Institution Profile
     function renderInstitutionProfilePage(p) {
-      const proj = p.projects && p.projects[0];
+      const allProjects = p.projects || [];
+      const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
       const esc = proj ? proj.escrow : null;
       const totalTarget = esc ? esc.Milestones.reduce((acc, m) => acc + m.Amount, 0) : 0;
       const funded = esc ? esc.FundedAmount : 0;
@@ -2009,11 +2070,62 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
       if (el) el.style.display = el.style.display === "none" ? "block" : "none";
     }
 
+    function selectActiveProject(id) {
+      selectedProjectId = id;
+      render();
+    }
+
+    function toggleNewProjectCreator() {
+      showNewProjectForm = !showNewProjectForm;
+      render();
+    }
+
+    async function submitCreateNewProject() {
+      const titleES = (document.getElementById("new-proj-title-es") ? document.getElementById("new-proj-title-es").value : "").trim();
+      const resCode = (document.getElementById("new-proj-res") ? document.getElementById("new-proj-res").value : "").trim();
+      const locES = (document.getElementById("new-proj-loc-es") ? document.getElementById("new-proj-loc-es").value : "").trim();
+      const contractor = (document.getElementById("new-proj-contractor") ? document.getElementById("new-proj-contractor").value : "").trim();
+      const inspector = (document.getElementById("new-proj-inspector") ? document.getElementById("new-proj-inspector").value : "").trim();
+
+      const milestones = [];
+      for (let i = 1; i <= 3; i++) {
+        const mTitle = (document.getElementById(`new-m${i}-title`) ? document.getElementById(`new-m${i}-title`).value : "").trim();
+        const mDesc = (document.getElementById(`new-m${i}-desc`) ? document.getElementById(`new-m${i}-desc`).value : "").trim();
+        const mAmt = Number(document.getElementById(`new-m${i}-amt`) ? document.getElementById(`new-m${i}-amt`).value : 0);
+        if (mTitle && mAmt > 0) {
+          milestones.push({
+            title_es: mTitle,
+            title_en: mTitle,
+            description_es: mDesc || "Etapa verificable por inspección técnica independiente.",
+            description_en: mDesc || "Verifiable stage by independent technical inspection.",
+            amount: Math.floor(mAmt)
+          });
+        }
+      }
+      const data = await apiCall("/api/v1/project/create", {
+        title_es: titleES,
+        title_en: titleES,
+        location_es: locES,
+        location_en: locES,
+        contractor_display_name: contractor,
+        inspector_display_name: inspector,
+        approved_resolution: resCode,
+        milestones: milestones
+      });
+      if (data && data.ok) {
+        showNewProjectForm = false;
+        selectedProjectId = data.project_id || "";
+        await loadState();
+      }
+    }
+
     async function simulateGovernanceWebhook(sourceName, resolutionCode) {
+      const allProjects = (appState && appState.platform && appState.platform.projects) || [];
+      const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
       await apiCall("/api/v1/governance/webhook", {
         source: sourceName,
         event_type: "board.resolution.approved",
-        project_id: "proj-solar-lighting-001",
+        project_id: proj ? proj.id : "proj-solar-lighting-001",
         resolution_id: resolutionCode
       });
     }
@@ -3098,7 +3210,8 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
     }
 
     async function fundAct(action) {
-      const proj = appState.platform.projects[0];
+      const allProjects = (appState && appState.platform && appState.platform.projects) || [];
+      const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
       if (document.getElementById("fund-donor")) {
         currentUserName = document.getElementById("fund-donor").value || currentUserName;
       }
