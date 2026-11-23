@@ -1853,39 +1853,65 @@
             <tbody>${auditRows || '<tr><td colspan="4" style="color:var(--slate);">Sin aportes registrados aún.</td></tr>'}</tbody>
           </table>
 
-          <div style="margin-top:1.5rem;padding:1.1rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.65rem;">
+          <div style="margin-top:1.5rem;padding:1.15rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
               <div>
-                <h3 style="margin:0;font-size:0.95rem;color:var(--navy);">Conector de Gobernanza Nativa y CONSUL Democracy (HMAC-SHA256 Webhook)</h3>
+                <h3 style="margin:0;font-size:0.98rem;color:var(--navy);">Junta y Actas Inteligentes del Comité (Quórum, Orden del Día y Conector CONSUL)</h3>
                 <div style="font-size:0.78rem;color:var(--slate);margin-top:0.15rem;">
-                  Vincula resoluciones de <strong>CONSUL Democracy (Presupuesto Participativo Open-Source)</strong> y <strong>Actas del Comité / Concejo Municipal</strong> directamente con la compuerta de aprobación (<code>ApprovedResolution</code>) y liberación de hitos del contrato.
+                  Sistema 100% propio y sin suscripciones externas: redacta automáticamente el <strong>Orden del Día</strong> según el estado real de los hitos y subastas, registra el <strong>Quórum del Comité</strong> y ancla el <strong>Acta Oficial (SHA-256)</strong> o resoluciones de <strong>CONSUL Democracy</strong> en el contrato.
                 </div>
               </div>
               <span class="badge badge-emerald">HMAC-SHA256 + 2FA Protegido</span>
             </div>
-            <div class="grid-3" style="margin-bottom:0.65rem;">
-              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">1. Actas Nativas del Comité</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">El Comité o Concejo Municipal aprueba el acta oficial sin costo ni suscripciones externas &rarr; se ancla el hash SHA-256 de la resolución y habilita la recaudación.</div>
+
+            <div class="grid-3" style="margin-bottom:0.75rem;">
+              <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">1. Orden del Día Autogenerado</strong>
+                <ul style="margin:0.35rem 0 0 1.1rem;padding:0;color:var(--slate);line-height:1.45;">
+                  <li>Verificación de quórum de Junta / Comité</li>
+                  <li>Revisión de hitos certificados por Inspector (SHA-256)</li>
+                  <li>Adjudicación y traslado de fondos de Subastas</li>
+                  <li>Arrastre automático de acuerdos pendientes</li>
+                </ul>
               </div>
-              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">2. CONSUL Democracy (Open-Source)</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">Proyectos ganadores de presupuesto participativo en CONSUL se sincronizan vía <code>/api/v1/governance/webhook</code> con firma HMAC-SHA256.</div>
-              </div>
-              <div style="padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">3. Certificación Criptográfica de Hitos</strong>
-                <div style="color:var(--slate);margin-top:0.2rem;">Cuando el Inspector certifica un hito con hash SHA-256, WaysToBuildIt habilita la liberación condicionada al quórum del Comité.</div>
-              </div>
-            </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.78rem;background:#FFFFFF;padding:0.55rem 0.75rem;border-radius:8px;border:1px solid #E2E8F0;">
-              <div><strong>Resolución Anclada Actual:</strong> <code>${proj ? (proj.approved_resolution || "Pendiente") : "N/A"}</code></div>
-              ${(role === "committee" || role === "sysadmin") ? `
-                <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                  <button class="btn-navy btn-sm" onclick="simulateGovernanceWebhook('Acta Nativa del Comité Municipal', 'ACTA-COMITE-MDO-2026-042')">Anclar Acta Nativa del Comité</button>
-                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Sincronizar Resolución CONSUL</button>
+              <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">2. Votación de Quórum (3/3 Miembros)</strong>
+                <div style="color:var(--slate);margin-top:0.25rem;line-height:1.45;">
+                  <div>• Presidencia del Comité: <span id="quorum-v1" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
+                  <div>• Tesorería / Finanzas: <span id="quorum-v2" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
+                  <div>• Secretaría de Actas: <span id="quorum-v3" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
                 </div>
-              ` : `<span style="color:var(--slate);font-size:0.74rem;">Endpoint protegido: <code>POST /api/v1/governance/webhook</code> (HMAC-SHA256)</span>`}
+              </div>
+              <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
+                <strong style="color:var(--navy);">3. Conector CONSUL Democracy</strong>
+                <div style="color:var(--slate);margin-top:0.25rem;line-height:1.45;">
+                  Compatible con presupuestos participativos open-source vía <code>POST /api/v1/governance/webhook</code> con verificación criptográfica <code>HMAC-SHA256</code> en tiempo constante.
+                </div>
+              </div>
             </div>
+
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.78rem;background:#FFFFFF;padding:0.6rem 0.8rem;border-radius:8px;border:1px solid #E2E8F0;">
+              <div><strong>Resolución / Acta Anclada en Escrow:</strong> <code>${proj ? (proj.approved_resolution || "Pendiente") : "N/A"}</code></div>
+              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+                <button class="btn-navy btn-sm" onclick="toggleSmartActaPreview()">Ver Borrador de Acta Oficial</button>
+                ${(role === "committee" || role === "sysadmin") ? `
+                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('Acta Oficial de Junta / Comité', 'ACTA-JUNTA-2026-042')">Firmar y Anclar Acta Nativa (SHA-256)</button>
+                  <button class="btn-amber btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Sincronizar Resolución CONSUL</button>
+                ` : `<span style="color:var(--slate);font-size:0.74rem;align-self:center;">Autentícate como Comité para firmar actas</span>`}
+              </div>
+            </div>
+
+            <div id="smart-acta-preview" style="display:none;margin-top:0.75rem;padding:0.9rem;background:#FFFFFF;border-radius:8px;border:1px dashed var(--navy);font-family:monospace;font-size:0.76rem;color:#1E293B;white-space:pre-wrap;line-height:1.5;">ACTA OFICIAL DE JUNTA / COMITÉ — ${p.config.organization_name.toUpperCase()}
+Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOString().slice(0, 10)}
+--------------------------------------------------------------------------------
+1. VERIFICACIÓN DE QUÓRUM: Quórum legal confirmado (3/3 miembros presentes: Presidencia, Tesorería, Secretaría).
+2. ORDEN DEL DÍA AUTOGENERADO POR ESTADO DEL CONTRATO:
+   • Proyecto Activo: ${proj ? proj.title_es : "N/A"} (${proj ? proj.id : "N/A"})
+   • Presupuesto en Garantía (Escrow): ${fmtMoney(funded)} recaudados de ${fmtMoney(totalTarget)} (${ fmtMoney(released) } liberados)
+   • Hitos Certificados por Inspección Técnica: ${esc ? esc.Milestones.filter(m => m.Verified).length : 0} de ${esc ? esc.Milestones.length : 0}
+   • Estado del Fondo Público del Comité: ${fmtMoney(p.committee_fund.Balance)} disponibles
+3. ACUERDO FIRME Y ANCLAJE CRIPTOGRÁFICO:
+   Se aprueba en firme la resolución ${proj ? (proj.approved_resolution || "ACTA-JUNTA-2026-042") : "ACTA-JUNTA-2026-042"} para habilitar y respaldar la ejecución por hitos verificados en WaysToBuildIt.</div>
           </div>
         </div>
       `;
@@ -1976,6 +2002,11 @@
 
     async function subastaAct(action) {
       await apiCall("/api/v1/subasta", { action: action });
+    }
+
+    function toggleSmartActaPreview() {
+      const el = document.getElementById("smart-acta-preview");
+      if (el) el.style.display = el.style.display === "none" ? "block" : "none";
     }
 
     async function simulateGovernanceWebhook(sourceName, resolutionCode) {
