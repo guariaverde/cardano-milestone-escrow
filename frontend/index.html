@@ -1432,8 +1432,12 @@
       document.getElementById("fx-banner").innerHTML =
         `<strong>Tipo de Cambio Oficial:</strong> ₡${fxRateCRC.toLocaleString("es-CR")} CRC = $1.00 USD • <strong>Fuente:</strong> ${fxSource} (${fxUpdated})`;
 
-      if (role === "sysadmin") {
-        subnav.style.display = "none";
+      if (role === "sysadmin" && currentPage !== "testnet") {
+        subnav.style.display = "flex";
+        ["projects", "subastas", "direct", "user-profile", "institution", "testnet"].forEach(tab => {
+          const el = document.getElementById("nav-" + tab);
+          if (el) el.classList.toggle("active", false);
+        });
         box.innerHTML = renderSysAdminHTML(p.config, appState.sysadmin_diagnostics);
         return;
       }
@@ -2140,6 +2144,7 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
             <button class="btn-navy" onclick="saveConfigFromGUI()">Guardar Configuración</button>
             <button class="btn-emerald" onclick="loadConfigFile()">Cargar config/organization.json</button>
             <button class="btn-amber" onclick="downloadVerifiedBackup()">Descargar Respaldo (ledger.json)</button>
+            <button class="btn-navy" onclick="setPage('testnet')">Abrir Red Testnet (Blockchain en Vivo)</button>
             <button class="btn-emerald" onclick="showCanvasVideoStudio()">Abrir Estudio de 3 Videos para Grants</button>
           </div>
           ${diag ? `
