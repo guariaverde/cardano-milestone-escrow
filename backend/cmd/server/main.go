@@ -320,16 +320,36 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 				"HasSettlementReceipt":  m.SettlementReceiptHash != "",
 			})
 		}
+		govStage := p.GovernanceStage
+		if govStage == "" {
+			govStage = "active"
+		}
+		reqVotes := p.RequiredVotes
+		if reqVotes == 0 {
+			reqVotes = 3
+		}
+		instFeeAcc := p.InstitutionalFeeAccount
+		if instFeeAcc == "" {
+			instFeeAcc = s.svc.Config.CommitteeAccount
+		}
 		sanitizedProjects = append(sanitizedProjects, map[string]any{
-			"id":                      p.ID,
-			"title_es":                p.TitleES,
-			"title_en":                p.TitleEN,
-			"location_es":             p.LocationES,
-			"location_en":             p.LocationEN,
-			"contractor_display_name": p.ContractorDisplayName,
-			"inspector_display_name":  p.InspectorDisplayName,
-			"approved_resolution":     p.ApprovedResolution,
-			"milestone_metadata":      p.MilestoneMetadata,
+			"id":                         p.ID,
+			"title_es":                   p.TitleES,
+			"title_en":                   p.TitleEN,
+			"location_es":                p.LocationES,
+			"location_en":                p.LocationEN,
+			"contractor_display_name":    p.ContractorDisplayName,
+			"contractor_payout_account":  p.ContractorPayoutAccount,
+			"inspector_display_name":     p.InspectorDisplayName,
+			"approved_resolution":        p.ApprovedResolution,
+			"governance_stage":           govStage,
+			"approval_votes":             p.ApprovalVotes,
+			"required_votes":             reqVotes,
+			"institutional_fee_account":  instFeeAcc,
+			"institutional_fee_title":    p.InstitutionalFeeTitle,
+			"institutional_fee_units":    p.InstitutionalFeeUnits,
+			"institutional_fee_released": p.InstitutionalFeeReleased,
+			"milestone_metadata":         p.MilestoneMetadata,
 			"escrow": map[string]any{
 				"Status":         p.Escrow.Status,
 				"FundedAmount":   p.Escrow.FundedAmount,
@@ -611,15 +631,21 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ID                    string `json:"id"`
-		TitleES               string `json:"title_es"`
-		TitleEN               string `json:"title_en"`
-		LocationES            string `json:"location_es"`
-		LocationEN            string `json:"location_en"`
-		ContractorDisplayName string `json:"contractor_display_name"`
-		InspectorDisplayName  string `json:"inspector_display_name"`
-		ApprovedResolution    string `json:"approved_resolution"`
-		Milestones            []struct {
+		ID                      string `json:"id"`
+		TitleES                 string `json:"title_es"`
+		TitleEN                 string `json:"title_en"`
+		LocationES              string `json:"location_es"`
+		LocationEN              string `json:"location_en"`
+		ContractorDisplayName   string `json:"contractor_display_name"`
+		ContractorPayoutAccount string `json:"contractor_payout_account"`
+		InspectorDisplayName    string `json:"inspector_display_name"`
+		ApprovedResolution      string `json:"approved_resolution"`
+		GovernanceStage         string `json:"governance_stage"`
+		RequiredVotes           uint64 `json:"required_votes"`
+		InstitutionalFeeAccount string `json:"institutional_fee_account"`
+		InstitutionalFeeTitle   string `json:"institutional_fee_title"`
+		InstitutionalFeeUnits   uint64 `json:"institutional_fee_units"`
+		Milestones              []struct {
 			TitleES       string `json:"title_es"`
 			TitleEN       string `json:"title_en"`
 			DescriptionES string `json:"description_es"`
@@ -648,10 +674,22 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		req.LocationEN = req.LocationES
 	}
 	if req.ContractorDisplayName == "" {
-		req.ContractorDisplayName = "Contratista Adjudicado (Pago por Hitos)"
+		req.ContractorDisplayName = "En Licitación Pública (Por Adjudicar en Fase 2)"
+	}
+	if req.ContractorPayoutAccount == "" {
+		req.ContractorPayoutAccount = "contractor_onchain_wallet_" + req.ID
 	}
 	if req.InspectorDisplayName == "" {
 		req.InspectorDisplayName = "Inspector Técnico Independiente (CFIA)"
+	}
+	if req.GovernanceStage == "" {
+		req.GovernanceStage = "voting" // New projects start in Stage 1: Election & Voting before contractor bidding and fundraising!
+	}
+	if req.RequiredVotes == 0 {
+		req.RequiredVotes = 3
+	}
+	if req.InstitutionalFeeTitle == "" {
+		req.InstitutionalFeeTitle = "Tasa / Permiso Municipal o del Comité por Proyecto"
 	}
 
 	var escMilestones []escrow.Milestone
@@ -688,16 +726,27 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		req.ID = fmt.Sprintf("%s-%d", req.ID, time.Now().Unix()%1000)
 	}
 
+	if req.InstitutionalFeeAccount == "" {
+		req.InstitutionalFeeAccount = s.svc.Config.CommitteeAccount
+	}
+
 	newProj := &civic.CivicProject{
-		ID:                    req.ID,
-		TitleES:               req.TitleES,
-		TitleEN:               req.TitleEN,
-		LocationES:            req.LocationES,
-		LocationEN:            req.LocationEN,
-		ContractorDisplayName: req.ContractorDisplayName,
-		InspectorDisplayName:  req.InspectorDisplayName,
-		ApprovedResolution:    req.ApprovedResolution,
-		MilestoneMetadata:     metaList,
+		ID:                      req.ID,
+		TitleES:                 req.TitleES,
+		TitleEN:                 req.TitleEN,
+		LocationES:              req.LocationES,
+		LocationEN:              req.LocationEN,
+		ContractorDisplayName:   req.ContractorDisplayName,
+		ContractorPayoutAccount: req.ContractorPayoutAccount,
+		InspectorDisplayName:    req.InspectorDisplayName,
+		ApprovedResolution:      req.ApprovedResolution,
+		GovernanceStage:         req.GovernanceStage,
+		ApprovalVotes:           1,
+		RequiredVotes:           req.RequiredVotes,
+		InstitutionalFeeAccount: req.InstitutionalFeeAccount,
+		InstitutionalFeeTitle:   req.InstitutionalFeeTitle,
+		InstitutionalFeeUnits:   req.InstitutionalFeeUnits,
+		MilestoneMetadata:       metaList,
 		Escrow: &escrow.Escrow{
 			Client:     s.svc.Config.CommitteeAccount,
 			Contractor: "contractor_" + req.ID,
@@ -708,10 +757,103 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	s.svc.Projects = append([]*civic.CivicProject{newProj}, s.svc.Projects...)
-	s.persistStateAndLedger("PROJECT_CREATED", req.ID, 0, req.TitleES+" ("+req.ApprovedResolution+")")
+	s.persistStateAndLedger("PROJECT_CREATED", req.ID, 0, req.TitleES+" ("+req.ApprovedResolution+" stage="+req.GovernanceStage+")")
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"ok":         true,
 		"project_id": newProj.ID,
+	})
+}
+
+// handleProjectStage manages the 3-stage pre-fundraising governance pipeline:
+// - Stage 1 ("vote_elect"): Citizens or Committee members vote to elect the proposed project. Once ApprovalVotes >= RequiredVotes, advances to Stage 2 ("bidding").
+// - Stage 2 ("award_contractor"): Committee finalizes the winning Contractor, Inspector, Milestone divisions, and optional Per-Project Municipal/Committee Fee Account, advancing to Stage 3 ("active" fundraising on-chain).
+// - Optional Per-Project Municipal/Committee Fee Settlement ("release_institutional_fee"): Disburses the approved per-project municipal permit/inspection fee to the Municipality/Committee account.
+func (s *Server) handleProjectStage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.writeError(w, http.StatusMethodNotAllowed, "POST required")
+		return
+	}
+	var req struct {
+		ProjectID               string `json:"project_id"`
+		Action                  string `json:"action"` // "vote_elect", "award_contractor", "release_institutional_fee"
+		ContractorDisplayName   string `json:"contractor_display_name"`
+		ContractorPayoutAccount string `json:"contractor_payout_account"`
+		InspectorDisplayName    string `json:"inspector_display_name"`
+		InstitutionalFeeAccount string `json:"institutional_fee_account"`
+		InstitutionalFeeTitle   string `json:"institutional_fee_title"`
+		InstitutionalFeeUnits   uint64 `json:"institutional_fee_units"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "invalid JSON payload")
+		return
+	}
+
+	switch req.Action {
+	case "vote_elect":
+		if _, ok := s.requireVerifiedCitizen(w, r); !ok {
+			return
+		}
+	case "award_contractor", "release_institutional_fee":
+		if _, ok := s.requireRole(w, r, RoleCommittee, RoleSysAdmin); !ok {
+			return
+		}
+	default:
+		s.writeError(w, http.StatusBadRequest, "unknown project stage action")
+		return
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.svc == nil {
+		s.writeError(w, http.StatusBadRequest, "organization not configured")
+		return
+	}
+	proj, err := s.svc.FindProject(req.ProjectID)
+	if err != nil {
+		s.writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	if proj.RequiredVotes == 0 {
+		proj.RequiredVotes = 3
+	}
+
+	switch req.Action {
+	case "vote_elect":
+		proj.ApprovalVotes++
+		if proj.ApprovalVotes >= proj.RequiredVotes && proj.GovernanceStage == "voting" {
+			proj.GovernanceStage = "bidding"
+		}
+	case "award_contractor":
+		if req.ContractorDisplayName != "" {
+			proj.ContractorDisplayName = req.ContractorDisplayName
+		}
+		if req.ContractorPayoutAccount != "" {
+			proj.ContractorPayoutAccount = req.ContractorPayoutAccount
+		}
+		if req.InspectorDisplayName != "" {
+			proj.InspectorDisplayName = req.InspectorDisplayName
+		}
+		if req.InstitutionalFeeAccount != "" {
+			proj.InstitutionalFeeAccount = req.InstitutionalFeeAccount
+		}
+		if req.InstitutionalFeeTitle != "" {
+			proj.InstitutionalFeeTitle = req.InstitutionalFeeTitle
+		}
+		if req.InstitutionalFeeUnits > 0 {
+			proj.InstitutionalFeeUnits = req.InstitutionalFeeUnits
+		}
+		proj.GovernanceStage = "active"
+	case "release_institutional_fee":
+		proj.InstitutionalFeeReleased = true
+	}
+
+	s.persistStateAndLedger("PROJECT_STAGE_"+req.Action, proj.ID, proj.ApprovalVotes, "stage="+proj.GovernanceStage)
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"ok":               true,
+		"project_id":       proj.ID,
+		"governance_stage": proj.GovernanceStage,
+		"approval_votes":   proj.ApprovalVotes,
 	})
 }
 
@@ -1441,6 +1583,7 @@ func main() {
 	mux.HandleFunc("/api/v1/config", srv.handleUpdateConfig)
 	mux.HandleFunc("/api/v1/config/load-file", srv.handleLoadConfigFile)
 	mux.HandleFunc("/api/v1/project/create", srv.handleCreateProject)
+	mux.HandleFunc("/api/v1/project/stage", srv.handleProjectStage)
 	mux.HandleFunc("/api/v1/project/contribute", srv.handleContributeProject)
 	mux.HandleFunc("/api/v1/project/milestone", srv.handleMilestoneAction)
 	mux.HandleFunc("/api/v1/subasta", srv.handleSubastaAction)

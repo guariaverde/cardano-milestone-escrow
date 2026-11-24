@@ -1493,18 +1493,23 @@
       const canCreateProj = (role === "committee" || role === "sysadmin");
       const createProjPanelHTML = canCreateProj && showNewProjectForm ? `
         <div class="card" style="border:2px solid var(--emerald);margin-bottom:1.1rem;background:#F8FAFC;">
-          <h2 style="margin-top:0;font-size:1.05rem;color:var(--navy);">Crear Nuevo Proyecto por Hitos desde Cero (Smart Escrow)</h2>
+          <h2 style="margin-top:0;font-size:1.05rem;color:var(--navy);">Crear Nuevo Proyecto (Inicia en Fase 1: Votación y Elección antes de Recaudar)</h2>
           <div class="form-row">
             <input id="new-proj-title-es" placeholder="Título del Proyecto (ES) — ej. Cancha Techada Polideportiva Comunal" style="flex:2;" />
-            <input id="new-proj-res" placeholder="Resolución / Acta Aprobada — ej. ACTA-COMITE-2026-095" value="ACTA-COMITE-2026-095" style="flex:1;" />
+            <input id="new-proj-res" placeholder="Expediente / Acta Inicial — ej. PROP-COMITE-2026-095" value="PROP-COMITE-2026-095" style="flex:1;" />
           </div>
           <div class="form-row">
             <input id="new-proj-loc-es" placeholder="Ubicación — ej. San Pedro de Montes de Oca" value="San Pedro de Montes de Oca" style="flex:1;" />
-            <input id="new-proj-contractor" placeholder="Contratista Responsable — ej. Constructora Cívica S.A." value="Constructora e Ingeniería Cívica S.A." style="flex:1;" />
+            <input id="new-proj-contractor" placeholder="Contratista Propuesto (o en Licitación)" value="En Licitación Pública (Por Adjudicar en Fase 2)" style="flex:1;" />
             <input id="new-proj-inspector" placeholder="Inspector Independiente — ej. Ing. Laura Segura (CFIA)" value="Ing. Laura Segura — Inspectora CFIA" style="flex:1;" />
           </div>
+          <div class="form-row">
+            <input id="new-proj-fee-acc" placeholder="Cuenta Municipalidad / Comité para Tasas por Proyecto" value="${esc(p.config.committee_account || 'committee_multisig_key')}" style="flex:1;" title="Cuenta de la Municipalidad o Comité para recibir permisos, tasas o retenciones de ley de este proyecto" />
+            <input id="new-proj-fee-title" placeholder="Concepto de Tasa Municipal / Comité" value="Permiso Municipal de Construcción / Tasa CFIA" style="flex:1.5;" />
+            <input id="new-proj-fee-units" type="number" placeholder="Tasa ($)" value="25" style="width:110px;" title="Monto entero en USD reservado para tasas/permisos municipales o del comité en este proyecto" />
+          </div>
           <div style="margin-top:0.5rem;padding:0.7rem;background:#FFFFFF;border-radius:8px;border:1px solid var(--border);">
-            <strong style="font-size:0.82rem;color:var(--navy);">Definición de Hitos Verificables (Montos Enteros en USD):</strong>
+            <strong style="font-size:0.82rem;color:var(--navy);">Propuesta Inicial de División de Hitos (Se confirma con el Contratista en Fase 2):</strong>
             <div class="form-row" style="margin-top:0.4rem;">
               <input id="new-m1-title" placeholder="Hito 1: Título" value="Hito 1: Materiales, Nivelación y Cimientos" style="flex:2;" />
               <input id="new-m1-desc" placeholder="Descripción técnica a inspeccionar" value="Entrega de materiales certificados y fundición de bases." style="flex:2;" />
@@ -1523,7 +1528,7 @@
           </div>
           <div class="form-row" style="margin-top:0.65rem;justify-content:flex-end;">
             <button class="btn-slate" onclick="toggleNewProjectCreator()">Cancelar</button>
-            <button class="btn-emerald" onclick="submitCreateNewProject()">Publicar Proyecto y Abrir Contrato Escrow</button>
+            <button class="btn-emerald" onclick="submitCreateNewProject()">1. Someter Proyecto a Votación (Fase 1)</button>
           </div>
         </div>
       ` : "";
@@ -1647,10 +1652,83 @@
       `).join("");
 
       const remainingToGoal = totalTarget > funded ? totalTarget - funded : 0;
+      const govStage = proj.governance_stage || "active";
+      const votesNow = proj.approval_votes || 0;
+      const votesReq = proj.required_votes || 3;
+      const instFeeAcc = proj.institutional_fee_account || p.config.committee_account || "committee_multisig_key";
+      const instFeeTitle = proj.institutional_fee_title || "Tasa / Permiso Municipal o del Comité por Proyecto";
+      const instFeeUnits = Number(proj.institutional_fee_units || 0);
+      const instFeeReleased = !!proj.institutional_fee_released;
+
+      const stagePipelineBannerHTML = `
+        <div style="margin-bottom:0.9rem;padding:0.85rem 1rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.55rem;">
+            <strong style="font-size:0.84rem;color:var(--navy);">Ciclo de Gobernanza Pre-Escrow y Custodia 100% On-Chain</strong>
+            <span class="badge ${govStage === 'active' ? 'badge-emerald' : 'badge-amber'}">
+              ${govStage === 'voting' ? 'FASE 1 DE 3: EN VOTACIÓN' : (govStage === 'bidding' ? 'FASE 2 DE 3: LICITACIÓN DE CONTRATISTA E HITOS' : 'FASE 3 DE 3: ESCROW ON-CHAIN ACTIVO')}
+            </span>
+          </div>
+          <div class="grid-3" style="gap:0.5rem;font-size:0.75rem;">
+            <div style="padding:0.55rem;border-radius:6px;background:${govStage === 'voting' ? '#FEF3C7' : '#ECFDF5'};border:1px solid ${govStage === 'voting' ? '#F59E0B' : '#A7F3D0'};">
+              <strong>1. Elección y Votación</strong>
+              <div style="margin-top:0.15rem;">Votos verificados: <strong>${votesNow} / ${votesReq}</strong> (${govStage === 'voting' ? 'Recaudación bloqueada hasta elegir' : '✓ Proyecto Electo'})</div>
+            </div>
+            <div style="padding:0.55rem;border-radius:6px;background:${govStage === 'bidding' ? '#FEF3C7' : (govStage === 'active' ? '#ECFDF5' : '#FFFFFF')};border:1px solid ${govStage === 'bidding' ? '#F59E0B' : (govStage === 'active' ? '#A7F3D0' : '#E2E8F0')};">
+              <strong>2. Contratista y División de Hitos</strong>
+              <div style="margin-top:0.15rem;">${govStage === 'active' ? `✓ Adjudicado: ${esc(proj.contractor_display_name)}` : 'Definición de contratista, inspector y etapas'}</div>
+            </div>
+            <div style="padding:0.55rem;border-radius:6px;background:${govStage === 'active' ? '#ECFDF5' : '#FFFFFF'};border:1px solid ${govStage === 'active' ? '#A7F3D0' : '#E2E8F0'};">
+              <strong>3. Custodia On-Chain + Cuenta Municipal</strong>
+              <div style="margin-top:0.15rem;">100% en Smart Contract (sin pasar por banco del Comité), con cuenta municipal/comité (<code>${esc(instFeeAcc)}</code>) disponible para tasas (${fmtMoney(instFeeUnits)}).</div>
+            </div>
+          </div>
+          ${govStage === "voting" ? `
+            <div style="margin-top:0.65rem;padding:0.65rem;background:#FFFFFF;border-radius:8px;border:1px solid #F59E0B;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
+              <div style="font-size:0.79rem;color:#92400E;">
+                <strong>Fase 1 Activa:</strong> Este proyecto requiere <strong>${votesReq} votos verificados</strong> antes de pasar a licitación de contratista y abrir recaudación.
+              </div>
+              ${(citizenLoggedIn || role === "committee" || role === "sysadmin")
+                ? `<button class="btn-amber btn-sm" onclick="voteToElectProject('${esc(proj.id)}')">Registrar Voto a Favor (${votesNow}/${votesReq})</button>`
+                : `<button class="btn-navy btn-sm" onclick="openCitizenLoginModal()">Inicia sesión para Votar</button>`}
+            </div>
+          ` : ""}
+          ${govStage === "bidding" ? `
+            <div style="margin-top:0.65rem;padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #F59E0B;">
+              <strong style="font-size:0.81rem;color:var(--navy);">Fase 2 Activa: Adjudicación de Contratista, Divisiones de Hitos y Cuenta de Tasas Municipales/Comité</strong>
+              ${(role === "committee" || role === "sysadmin") ? `
+                <div class="form-row" style="margin-top:0.45rem;">
+                  <input id="award-contractor-name" placeholder="Contratista Adjudicado" value="Constructora e Ingeniería Cívica S.A." style="flex:1.5;" />
+                  <input id="award-contractor-acc" placeholder="Wallet / IBAN Directo del Contratista" value="wallet_or_iban_constructora_civica" style="flex:1;" />
+                  <input id="award-inspector-name" placeholder="Inspector Independiente (CFIA)" value="${esc(proj.inspector_display_name)}" style="flex:1.2;" />
+                </div>
+                <div class="form-row">
+                  <input id="award-fee-acc" placeholder="Cuenta Municipalidad / Comité para Tasas" value="${esc(instFeeAcc)}" style="flex:1;" />
+                  <input id="award-fee-title" placeholder="Concepto de Tasa / Permiso por Proyecto" value="${esc(instFeeTitle)}" style="flex:1.5;" />
+                  <input id="award-fee-units" type="number" value="${instFeeUnits || 25}" style="width:95px;" title="Monto de tasa municipal/comité ($ USD)" />
+                  <button class="btn-emerald btn-sm" onclick="awardContractorAndOpenEscrow('${esc(proj.id)}')">Adjudicar Contratista y Abrir Recaudación On-Chain (Fase 3)</button>
+                </div>
+              ` : `<div style="font-size:0.78rem;color:var(--slate);margin-top:0.25rem;">El proyecto ya fue elegido por votación (${votesNow}/${votesReq}). El Comité está adjudicando al contratista y las divisiones de hitos antes de habilitar los aportes.</div>`}
+            </div>
+          ` : ""}
+          ${(govStage === "active" && instFeeUnits > 0) ? `
+            <div style="margin-top:0.6rem;padding:0.5rem 0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.76rem;">
+              <div>
+                <strong>Cuenta Municipal / Comité Asignada al Proyecto:</strong> <code>${esc(instFeeAcc)}</code> • <strong>${esc(instFeeTitle)}:</strong> ${fmtMoneyDual(instFeeUnits)}
+                <span class="badge ${instFeeReleased ? 'badge-emerald' : 'badge-navy'}" style="margin-left:0.35rem;">${instFeeReleased ? '✓ Tasa Liquidada a Municipalidad/Comité' : 'Disponible en Contrato'}</span>
+              </div>
+              ${(!instFeeReleased && (role === "committee" || role === "sysadmin"))
+                ? `<button class="btn-navy btn-sm" style="font-size:0.73rem;padding:0.28rem 0.6rem;" onclick="releaseProjectInstitutionalFee('${esc(proj.id)}')">Liquidar Tasa a Cuenta Municipal/Comité</button>`
+                : ""}
+            </div>
+          ` : ""}
+        </div>
+      `;
 
       const rightSidebarHTML = `
         <div class="card sticky-sidebar">
-          <span class="badge badge-emerald" style="margin-bottom:0.6rem;">${friendlyEscrowStatus(escObj.Status)}</span>
+          <span class="badge ${govStage === 'active' ? 'badge-emerald' : 'badge-amber'}" style="margin-bottom:0.6rem;">
+            ${govStage === 'voting' ? 'Fase 1: En Votación' : (govStage === 'bidding' ? 'Fase 2: Licitación Contratista' : friendlyEscrowStatus(escObj.Status))}
+          </span>
           <div class="gfm-raised-big">${fmtMoney(funded)} <div class="gfm-goal-sub">${t("raisedOf")} ${fmtMoneyDual(totalTarget)}</div></div>
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;"></div></div>
           <div style="font-size:0.82rem;color:var(--slate);margin-bottom:1rem;">
@@ -1660,7 +1738,14 @@
               : `<div style="margin-top:0.35rem;color:var(--emerald);font-weight:700;">Meta del 100% alcanzada</div>`}
           </div>
 
-          ${role === "giver" ? (remainingToGoal > 0 ? (citizenLoggedIn ? `
+          ${govStage !== "active" ? `
+            <div style="background:#FEF3C7;border:1px solid #F59E0B;color:#92400E;padding:0.95rem;border-radius:10px;font-size:0.81rem;line-height:1.45;">
+              <strong>Recaudación Bloqueada en Fase Pre-Escrow:</strong><br/>
+              Ningún proyecto puede recibir dinero hasta completar:<br/>
+              1. <strong>Elección por Votación</strong> (${votesNow}/${votesReq} votos)<br/>
+              2. <strong>Adjudicación del Contratista y División de Hitos</strong>.
+            </div>
+          ` : (role === "giver" ? (remainingToGoal > 0 ? (citizenLoggedIn ? `
             <div style="background:#F8FAFC;border:1px solid var(--border);padding:1rem;border-radius:10px;">
               <strong style="font-size:0.9rem;color:var(--navy);">${t("contributeTitle")}</strong>
               <div style="font-size:0.78rem;color:var(--emerald);font-weight:600;margin-top:0.2rem;">Cuenta verificada: ${currentUserName}</div>
@@ -1708,7 +1793,7 @@
             <div style="background:#D1FAE5;color:#065F46;padding:0.85rem;border-radius:8px;font-size:0.85rem;font-weight:600;">
               Este proyecto alcanzó el 100% de su meta financiera y se encuentra en fase de ejecución.
             </div>
-          `) : ""}
+          `) : "")}
 
           <div style="margin-top:1.15rem;">
             <strong style="font-size:0.84rem;color:var(--slate);text-transform:uppercase;">${t("recentDonors")}</strong>
@@ -1727,7 +1812,8 @@
             <div class="card">
               <h1 style="font-size:1.45rem;color:var(--navy);margin-bottom:0.5rem;">${esc(title)}</h1>
               <p style="font-size:0.92rem;color:#334155;">${t("storyText")}</p>
-              <h2 style="margin-top:1.35rem;font-size:1.05rem;">${t("milestonesHeading")}</h2>
+              ${stagePipelineBannerHTML}
+              <h2 style="margin-top:1.15rem;font-size:1.05rem;">${t("milestonesHeading")}</h2>
               <div style="margin-bottom:0.85rem;padding:0.65rem 0.85rem;border-radius:8px;background:#ECFDF5;border:1px solid #A7F3D0;font-size:0.78rem;color:#065F46;line-height:1.45;">
                 <strong>Arquitectura de Cero Costo por Envío (Gas-Sponsoring Pool):</strong> Los contratistas e inspectores suben evidencias, correcciones y firmas criptográficas (<code>SHA-256</code>) con <strong>$0.00 de costo por clic</strong>. Únicamente el desembolso final aprobado por el Comité ejecuta <strong>1 transacción atómica en blockchain</strong>, cuyo micro-costo de red (gas) está 100% cubierto por el fondo operativo del sistema.
               </div>
@@ -2286,6 +2372,9 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
           });
         }
       }
+      const feeAcc = (document.getElementById("new-proj-fee-acc") ? document.getElementById("new-proj-fee-acc").value : "").trim();
+      const feeTitle = (document.getElementById("new-proj-fee-title") ? document.getElementById("new-proj-fee-title").value : "").trim();
+      const feeUnits = Number(document.getElementById("new-proj-fee-units") ? document.getElementById("new-proj-fee-units").value : 0);
       const data = await apiCall("/api/v1/project/create", {
         title_es: titleES,
         title_en: titleES,
@@ -2294,6 +2383,11 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
         contractor_display_name: contractor,
         inspector_display_name: inspector,
         approved_resolution: resCode,
+        governance_stage: "voting",
+        required_votes: 3,
+        institutional_fee_account: feeAcc,
+        institutional_fee_title: feeTitle,
+        institutional_fee_units: Math.max(0, Math.floor(feeUnits)),
         milestones: milestones
       });
       if (data && data.ok) {
@@ -2301,6 +2395,39 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
         selectedProjectId = data.project_id || "";
         await loadState();
       }
+    }
+
+    async function voteToElectProject(projectID) {
+      await apiCall("/api/v1/project/stage", {
+        project_id: projectID,
+        action: "vote_elect"
+      });
+    }
+
+    async function awardContractorAndOpenEscrow(projectID) {
+      const cName = (document.getElementById("award-contractor-name") ? document.getElementById("award-contractor-name").value : "").trim();
+      const cAcc = (document.getElementById("award-contractor-acc") ? document.getElementById("award-contractor-acc").value : "").trim();
+      const iName = (document.getElementById("award-inspector-name") ? document.getElementById("award-inspector-name").value : "").trim();
+      const fAcc = (document.getElementById("award-fee-acc") ? document.getElementById("award-fee-acc").value : "").trim();
+      const fTitle = (document.getElementById("award-fee-title") ? document.getElementById("award-fee-title").value : "").trim();
+      const fUnits = Number(document.getElementById("award-fee-units") ? document.getElementById("award-fee-units").value : 0);
+      await apiCall("/api/v1/project/stage", {
+        project_id: projectID,
+        action: "award_contractor",
+        contractor_display_name: cName,
+        contractor_payout_account: cAcc,
+        inspector_display_name: iName,
+        institutional_fee_account: fAcc,
+        institutional_fee_title: fTitle,
+        institutional_fee_units: Math.max(0, Math.floor(fUnits))
+      });
+    }
+
+    async function releaseProjectInstitutionalFee(projectID) {
+      await apiCall("/api/v1/project/stage", {
+        project_id: projectID,
+        action: "release_institutional_fee"
+      });
     }
 
     async function simulateGovernanceWebhook(sourceName, resolutionCode) {

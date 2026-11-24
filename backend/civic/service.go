@@ -113,19 +113,28 @@ type MilestoneMeta struct {
 }
 
 // CivicProject wraps a generic on-chain *escrow.Escrow with bilingual civic metadata,
-// an explicit administrative approval gate, and in-kind resource tracking.
+// an explicit administrative approval gate, pre-escrow governance stages (voting -> bidding -> active),
+// per-project municipal/committee fee & permit routing, and in-kind resource tracking.
 type CivicProject struct {
-	ID                    string           `json:"id"`
-	TitleES               string           `json:"title_es"`
-	TitleEN               string           `json:"title_en"`
-	LocationES            string           `json:"location_es"`
-	LocationEN            string           `json:"location_en"`
-	ContractorDisplayName string           `json:"contractor_display_name"`
-	InspectorDisplayName  string           `json:"inspector_display_name"`
-	ApprovedResolution    string           `json:"approved_resolution"` // Mandatory gate before accepting contributions
-	MilestoneMetadata     []MilestoneMeta  `json:"milestone_metadata"`
-	InKindContributions   []InKindResource `json:"in_kind_contributions"`
-	Escrow                *escrow.Escrow   `json:"escrow"`
+	ID                       string           `json:"id"`
+	TitleES                  string           `json:"title_es"`
+	TitleEN                  string           `json:"title_en"`
+	LocationES               string           `json:"location_es"`
+	LocationEN               string           `json:"location_en"`
+	ContractorDisplayName    string           `json:"contractor_display_name"`
+	ContractorPayoutAccount  string           `json:"contractor_payout_account"` // Direct contractor wallet or SINPE/IBAN payout target
+	InspectorDisplayName     string           `json:"inspector_display_name"`
+	ApprovedResolution       string           `json:"approved_resolution"`        // Mandatory gate before accepting contributions
+	GovernanceStage          string           `json:"governance_stage"`           // "voting" (Stage 1), "bidding" (Stage 2), or "active" (Stage 3; empty == "active")
+	ApprovalVotes            uint64           `json:"approval_votes"`             // Community/Committee votes cast during Stage 1 election
+	RequiredVotes            uint64           `json:"required_votes"`             // Votes required to advance from Stage 1 to Stage 2
+	InstitutionalFeeAccount  string           `json:"institutional_fee_account"`  // Municipality or Committee account available per-project for permits/statutory fees
+	InstitutionalFeeTitle    string           `json:"institutional_fee_title"`    // e.g. "Permiso Municipal de Construcción / Tasa CFIA"
+	InstitutionalFeeUnits    uint64           `json:"institutional_fee_units"`    // Optional per-project municipal/committee fee amount in integer USD/atomic units
+	InstitutionalFeeReleased bool             `json:"institutional_fee_released"` // True once the per-project municipal/committee fee has been settled
+	MilestoneMetadata        []MilestoneMeta  `json:"milestone_metadata"`
+	InKindContributions      []InKindResource `json:"in_kind_contributions"`
+	Escrow                   *escrow.Escrow   `json:"escrow"`
 }
 
 type CivicSubasta struct {
@@ -247,7 +256,8 @@ func PublicAlias(alias string, remainAnonymous bool) string {
 }
 
 // ContributeViaBridge enforces the Administrative Approval Gate (ApprovedResolution != "")
-// before allowing any citizen or business deposit to enter the project's escrow via the Fiat Bridge.
+// AND the Pre-Escrow Governance Gate (project must have completed Stage 1 Election & Stage 2 Contractor Bidding)
+// before allowing any citizen or business deposit to enter the project's on-chain escrow via the Fiat Bridge.
 func (s *PlatformService) ContributeViaBridge(projectID string, dep adapters.FiatDeposit, anonymous bool) (*adapters.DepositAuditRecord, error) {
 	proj, err := s.FindProject(projectID)
 	if err != nil {
@@ -255,6 +265,9 @@ func (s *PlatformService) ContributeViaBridge(projectID string, dep adapters.Fia
 	}
 	if proj.ApprovedResolution == "" {
 		return nil, errors.New("project lacks formal administrative approval resolution")
+	}
+	if proj.GovernanceStage != "" && proj.GovernanceStage != "active" {
+		return nil, errors.New("el proyecto aún está en fase previa de Votación o Adjudicación de Contratista y Divisiones de Hitos; la recaudación se abre únicamente al completar ambas etapas")
 	}
 	dep.Donor = PublicAlias(dep.Donor, anonymous)
 	return s.Bridge.DepositFiatToProject(dep, proj.Escrow)
