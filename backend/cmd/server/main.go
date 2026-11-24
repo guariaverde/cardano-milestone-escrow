@@ -302,6 +302,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		publicConfig["backup_target_dir"] = s.svc.Config.BackupTargetDir
 		publicConfig["hosting_fee_bps"] = s.svc.Config.HostingFeeBps
 		publicConfig["hosting_period_cap"] = s.svc.Config.HostingPeriodCap
+		publicConfig["gas_reserve_period_cap"] = s.svc.Config.GasReservePeriodCap
 	}
 
 	// Build sanitized public projects (stripping raw hashes and internal actor keys from F12 network payloads!)
@@ -406,6 +407,8 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	sanitizedBridge := map[string]any{
 		"HostingFeeBps":        s.svc.Bridge.HostingFeeBps,
 		"HostingPeriodCap":     s.svc.Bridge.HostingPeriodCap,
+		"GasReservePeriodCap":  s.svc.Bridge.GasReservePeriodCap,
+		"OnChainSettlements":   s.svc.Bridge.OnChainSettlements,
 		"HostingPoolCollected": s.svc.Bridge.HostingPoolCollected,
 		"LockedReserveUnits":   s.svc.Bridge.LockedReserveUnits,
 		"TotalDisbursedUnits":  s.svc.Bridge.TotalDisbursedUnits,

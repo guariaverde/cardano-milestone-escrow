@@ -1340,7 +1340,8 @@
         exchange_rate_updated_at: new Date().toISOString().slice(0, 10),
         backup_target_dir: document.getElementById("cfg-backup-dir") ? document.getElementById("cfg-backup-dir").value : "",
         hosting_fee_bps: Number(document.getElementById("cfg-fee-bps").value || 100),
-        hosting_period_cap: Number(document.getElementById("cfg-fee-cap").value || 15),
+        hosting_period_cap: Number(document.getElementById("cfg-fee-cap").value || 18),
+        gas_reserve_period_cap: Number(document.getElementById("cfg-gas-cap") ? document.getElementById("cfg-gas-cap").value : 3),
         chain_display_mode: selChain
       });
     }
@@ -1727,6 +1728,9 @@
               <h1 style="font-size:1.45rem;color:var(--navy);margin-bottom:0.5rem;">${esc(title)}</h1>
               <p style="font-size:0.92rem;color:#334155;">${t("storyText")}</p>
               <h2 style="margin-top:1.35rem;font-size:1.05rem;">${t("milestonesHeading")}</h2>
+              <div style="margin-bottom:0.85rem;padding:0.65rem 0.85rem;border-radius:8px;background:#ECFDF5;border:1px solid #A7F3D0;font-size:0.78rem;color:#065F46;line-height:1.45;">
+                <strong>Arquitectura de Cero Costo por Envío (Gas-Sponsoring Pool):</strong> Los contratistas e inspectores suben evidencias, correcciones y firmas criptográficas (<code>SHA-256</code>) con <strong>$0.00 de costo por clic</strong>. Únicamente el desembolso final aprobado por el Comité ejecuta <strong>1 transacción atómica en blockchain</strong>, cuyo micro-costo de red (gas) está 100% cubierto por el fondo operativo del sistema.
+              </div>
               ${milestonesHTML}
             </div>
           </div>
@@ -2020,13 +2024,14 @@
               <div class="stat-label">Total Histórico Recibido: <strong>${fmtMoney(p.committee_fund.TotalReceived)}</strong></div>
             </div>
             <div class="card" style="margin-bottom:0;background:#F8FAFC;">
-              <div class="stat-label">${t("cardHosting")}</div>
+              <div class="stat-label">${t("cardHosting")} + Pool de Gas On-Chain</div>
               <div class="stat-number">${fmtMoney(p.bridge.HostingPoolCollected)} / ${fmtMoney(p.bridge.HostingPeriodCap)}
                 <span class="badge ${p.bridge.HostingPoolCollected >= p.bridge.HostingPeriodCap ? 'badge-emerald' : 'badge-amber'}">
                   ${p.bridge.HostingPoolCollected >= p.bridge.HostingPeriodCap ? '0% FEE' : (p.bridge.HostingFeeBps/100)+'% FEE'}
                 </span>
               </div>
-              <div class="stat-label">Reserva Verificada: <strong>${fmtMoney(p.bridge.LockedReserveUnits)}</strong></div>
+              <div class="stat-label">Desglose Tope Mensual: <strong>${fmtMoney(Math.max(0, (p.bridge.HostingPeriodCap || 18) - (p.bridge.GasReservePeriodCap || 3)))} Hosting + ${fmtMoney(p.bridge.GasReservePeriodCap || 3)} Gas On-Chain</strong></div>
+              <div class="stat-label">Reserva en Garantía: <strong>${fmtMoney(p.bridge.LockedReserveUnits)}</strong> • Liquidaciones On-Chain Cubiertas: <strong>${p.bridge.OnChainSettlements || 0}</strong></div>
             </div>
           </div>
           ${allocBtn}
@@ -2130,8 +2135,9 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
             <input id="cfg-committee" placeholder="Cuenta del Comité" value="${c.committee_account || 'committee_multisig_key'}" />
             <input id="cfg-fx-rate" type="number" value="${c.exchange_rate_crc_per_usd || 512}" style="width:110px;" title="Tipo de cambio CRC por $1 USD" />
             <input id="cfg-fx-source" placeholder="Fuente Tipo de Cambio" value="${c.exchange_rate_source || 'Banco Central de Costa Rica (BCCR — Referencia MONEX)'}" style="flex:1;" />
-            <input id="cfg-fee-bps" type="number" value="${c.hosting_fee_bps || 100}" style="width:80px;" />
-            <input id="cfg-fee-cap" type="number" value="${c.hosting_period_cap || 15}" style="width:80px;" />
+            <input id="cfg-fee-bps" type="number" value="${c.hosting_fee_bps || 100}" style="width:75px;" title="Micro-comisión en bps (100 = 1%)" />
+            <input id="cfg-fee-cap" type="number" value="${c.hosting_period_cap || 18}" style="width:80px;" title="Tope Total Mensual: Hosting + Gas On-Chain ($ USD)" />
+            <input id="cfg-gas-cap" type="number" value="${c.gas_reserve_period_cap || 3}" style="width:80px;" title="Sub-reserva Mensual para Gas Blockchain ($ USD)" />
           <div class="form-row">
             <input id="cfg-backup-dir" placeholder="Ruta Respaldo Synology NAS (ej. \\\\SYNOLOGY\\backups\\waystobuildit o Z:\\backups)" value="${c.backup_target_dir || ''}" style="flex:1;" />
             <select id="cfg-chain-mode" style="min-width:250px;border-color:var(--navy);font-weight:600;" title="Modo de Presentación para Grants y Videos">

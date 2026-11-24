@@ -27,7 +27,8 @@ type OrganizationConfig struct {
 	BackupTargetDir       string   `json:"backup_target_dir"` // e.g., Synology NAS SMB path (\\SYNOLOGY\backups\waystobuildit)
 	HostingFeeBps         uint64   `json:"hosting_fee_bps"`
 	HostingPeriodCap      uint64   `json:"hosting_period_cap"`
-	ChainDisplayMode      string   `json:"chain_display_mode"` // "cardano" (Cardano Native), "base" (Base L2 Native), or "civic" (Zero Crypto Branding)
+	GasReservePeriodCap   uint64   `json:"gas_reserve_period_cap"` // Blockchain on-chain settlement gas budget included in period operating pool
+	ChainDisplayMode      string   `json:"chain_display_mode"`     // "cardano" (Cardano Native), "base" (Base L2 Native), or "civic" (Zero Crypto Branding)
 }
 
 // FX Circuit-Breaker Constants: Prevents oracle manipulation, flash-crash exploits, or admin tampering
@@ -170,15 +171,19 @@ func NewPlatformService(cfg OrganizationConfig) (*PlatformService, error) {
 	if cfg.ChainDisplayMode == "" {
 		cfg.ChainDisplayMode = "cardano"
 	}
+	if cfg.GasReservePeriodCap == 0 {
+		cfg.GasReservePeriodCap = 3
+	}
 
 	fund := &escrow.CommitteeFund{
 		ID:        "committee_public_fund",
 		Committee: cfg.CommitteeAccount,
 	}
 	bridge := &adapters.FiatBridgeAdapter{
-		DisburserAccount: cfg.DisburserAccount,
-		HostingFeeBps:    cfg.HostingFeeBps,
-		HostingPeriodCap: cfg.HostingPeriodCap,
+		DisburserAccount:    cfg.DisburserAccount,
+		HostingFeeBps:       cfg.HostingFeeBps,
+		HostingPeriodCap:    cfg.HostingPeriodCap,
+		GasReservePeriodCap: cfg.GasReservePeriodCap,
 	}
 
 	return &PlatformService{
@@ -209,6 +214,11 @@ func (s *PlatformService) UpdateConfigFromGUI(newCfg OrganizationConfig) error {
 	s.CommitteeFund.Committee = newCfg.CommitteeAccount
 	if newCfg.DisburserAccount != "" {
 		s.Bridge.DisburserAccount = newCfg.DisburserAccount
+	}
+	s.Bridge.HostingFeeBps = newCfg.HostingFeeBps
+	s.Bridge.HostingPeriodCap = newCfg.HostingPeriodCap
+	if newCfg.GasReservePeriodCap > 0 {
+		s.Bridge.GasReservePeriodCap = newCfg.GasReservePeriodCap
 	}
 	return nil
 }

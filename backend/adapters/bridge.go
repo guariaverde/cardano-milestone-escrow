@@ -126,9 +126,11 @@ type DepositAuditRecord struct {
 // contractors (paid via SINPE/IBAN) with our on-chain Escrow & Committee Fund engine.
 type FiatBridgeAdapter struct {
 	DisburserAccount     string // on-chain Beneficiary account for last-mile SINPE/IBAN contractor payouts
-	HostingFeeBps        uint64 // e.g. 100 bps (1%) non-profit hosting fee
-	HostingPeriodCap     uint64 // maximum hosting budget needed per period (e.g. $150 equivalent)
-	HostingPoolCollected uint64 // hosting fees collected so far this period (drops fee to 0 once == Cap)
+	HostingFeeBps        uint64 // e.g. 100 bps (1%) non-profit operating & gas micro-fee
+	HostingPeriodCap     uint64 // maximum cloud hosting + on-chain settlement gas budget needed per period
+	GasReservePeriodCap  uint64 // portion of HostingPeriodCap reserved for atomic on-chain settlement gas fees
+	OnChainSettlements   uint64 // count of atomic on-chain payout settlements sponsored from the gas pool
+	HostingPoolCollected uint64 // operating + gas fees collected so far this period (drops fee to 0 once == Cap)
 	LockedReserveUnits   uint64 // verified available backing reserve (CRC/USD) locked for active escrows
 	TotalDisbursedUnits  uint64 // cumulative units disbursed and settled via SINPE/off-ramp
 	ProcessedDeposits    map[string]bool
@@ -223,5 +225,6 @@ func (b *FiatBridgeAdapter) SettleMilestoneViaSINPE(project *escrow.Escrow, mile
 	}
 	b.LockedReserveUnits -= m.Amount
 	b.TotalDisbursedUnits += m.Amount
+	b.OnChainSettlements++
 	return receiptHash, nil
 }
