@@ -402,6 +402,13 @@
   </style>
 </head>
 <body>
+  <!-- Industry-Standard Legal & Sandbox Demonstration Disclaimer Banner -->
+  <div id="legal-disclaimer-banner" style="background:#0F172A;color:#E2E8F0;font-size:0.74rem;padding:0.45rem 1.25rem;border-bottom:1px solid #334155;display:flex;justify-content:center;align-items:center;gap:0.6rem;text-align:center;line-height:1.4;">
+    <span style="background:#D99A24;color:#0F172A;font-weight:800;font-size:0.66rem;padding:0.12rem 0.45rem;border-radius:4px;letter-spacing:0.04em;text-transform:uppercase;flex-shrink:0;" id="legal-badge-label">ENTORNO DEMO / SANDBOX</span>
+    <span id="legal-banner-text">
+      <strong>Aviso Legal:</strong> Este portal es un entorno de demostración tecnológica y prototipo de código abierto desarrollado por <strong>Guaria Verde</strong>. Los nombres de instituciones, proyectos, resoluciones y transacciones mostrados son perfiles demostrativos configurables en red de pruebas (Testnet / Sandbox) y no constituyen una recaudación oficial activa ni afiliación gubernamental vinculante.
+    </span>
+  </div>
   <header>
     <div onclick="setPage('institution')" title="Ver Perfil Institucional">
       <div class="brand-title" id="org-title">Cargando...</div>
@@ -449,6 +456,9 @@
     </div>
     <div>
       Desarrollado por <a href="https://guariaverde.com" target="_blank" rel="noopener" style="color:var(--emerald);text-decoration:none;font-weight:700;">Guaria Verde</a> • Contacto: <a href="mailto:grants@guariaverde.com" style="color:var(--navy);text-decoration:none;font-weight:600;">grants@guariaverde.com</a>
+    </div>
+    <div id="legal-footer-text" style="width:100%;font-size:0.72rem;color:#64748B;border-top:1px dashed #E2E8F0;padding-top:0.65rem;line-height:1.45;">
+      <strong>Descargo de Responsabilidad Legal (Disclaimer):</strong> WaysToBuildIt se distribuye bajo licencia abierta Apache-2.0 "TAL CUAL" (AS-IS) con fines de demostración técnica e investigación de infraestructura pública digital. Ninguna entidad municipal o gubernamental mencionada como perfil de ejemplo (incluyendo la Municipalidad de Montes de Oca) avala, patrocina ni recauda fondos reales a través de este entorno Sandbox de demostración. No envíe fondos reales ni datos personales confidenciales.
     </div>
   </footer>
 
@@ -600,6 +610,44 @@
     let selectedProjectId = "";
     let showNewProjectForm = false;
     let appState = null;
+
+    // 1. Strict HTML Output Escaping (React/JSX-equivalent DOM XSS immunity for all dynamic strings)
+    function esc(raw) {
+      if (raw === null || raw === undefined) return "";
+      return String(raw)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    // 2. TanStack Query Core Client (Stale-While-Revalidate cache, Double-Submit Mutation Lock, Focus Refetch, and Secure Cache Purge)
+    const queryClient = {
+      cache: new Map(),
+      updatedAt: 0,
+      staleTimeMs: 4000,
+      mutationInFlight: false,
+      inFlightPromise: null,
+      setQueryData(key, data) {
+        this.cache.set(key, data);
+        this.updatedAt = Date.now();
+      },
+      getQueryData(key) {
+        return this.cache.get(key);
+      },
+      clear() {
+        this.cache.clear();
+        this.updatedAt = 0;
+        this.mutationInFlight = false;
+        this.inFlightPromise = null;
+      }
+    };
+
+    // 3. TanStack Table State for Public Audit Ledger (Filter, Sort, CSV Export)
+    let auditTableSearch = "";
+    let auditTableRailFilter = "ALL";
+    let auditTableSortDesc = true;
 
     function fmtMoney(units) {
       const n = Number(units || 0);
@@ -788,6 +836,7 @@
     function logoutCitizen() {
       citizenLoggedIn = false;
       citizenSessionToken = "";
+      queryClient.clear();
       updateUnlockedRoleTabs();
       if (currentPage === "user-profile") {
         setPage("projects");
@@ -1028,6 +1077,7 @@
 
     async function logoutStaff() {
       sessionTokens = { giver: "" };
+      queryClient.clear();
       updateUnlockedRoleTabs();
       await setRole("giver");
     }
@@ -1213,26 +1263,69 @@
     async function apiCall(path, body) {
       const errBox = document.getElementById("error-box");
       errBox.style.display = "none";
-      const res = await fetch(path, {
-        method: body ? "POST" : "GET",
-        headers: authHeaders(),
-        body: body ? JSON.stringify(body) : undefined
-      });
-      const data = await res.json();
-      if (!res.ok || data.ok === false) {
-        errBox.textContent = "⚠️ " + (data.error || "Forbidden");
-        errBox.style.display = "block";
-        return null;
+      if (body && queryClient.mutationInFlight && !autoDemoRunning) {
+        return null; // TanStack Query Double-Submit Mutation Lock
       }
-      await loadState();
-      return data;
+      if (body) queryClient.mutationInFlight = true;
+      try {
+        const res = await fetch(path, {
+          method: body ? "POST" : "GET",
+          headers: authHeaders(),
+          body: body ? JSON.stringify(body) : undefined
+        });
+        const data = await res.json();
+        if (!res.ok || data.ok === false) {
+          errBox.textContent = "⚠️ " + (data.error || "Forbidden");
+          errBox.style.display = "block";
+          return null;
+        }
+        await loadState(true);
+        return data;
+      } finally {
+        if (body) queryClient.mutationInFlight = false;
+      }
     }
 
-    async function loadState() {
-      const res = await fetch("/api/v1/state", { headers: authHeaders() });
-      appState = await res.json();
-      render();
+    async function loadState(forceRefresh = true) {
+      const cacheKey = `state:${role}:${citizenSessionToken ? "cit" : "pub"}`;
+      if (!forceRefresh && queryClient.getQueryData(cacheKey) && (Date.now() - queryClient.updatedAt < queryClient.staleTimeMs)) {
+        appState = queryClient.getQueryData(cacheKey);
+        render();
+        return;
+      }
+      if (queryClient.inFlightPromise) {
+        return queryClient.inFlightPromise;
+      }
+      queryClient.inFlightPromise = (async () => {
+        try {
+          const res = await fetch("/api/v1/state", { headers: authHeaders() });
+          appState = await res.json();
+          queryClient.setQueryData(cacheKey, appState);
+          render();
+        } finally {
+          queryClient.inFlightPromise = null;
+        }
+      })();
+      return queryClient.inFlightPromise;
     }
+
+    // TanStack Query Auto-Refetch on Window Focus & Background Multi-Party Sync (Paused when typing in inputs or during Auto-Demo)
+    function isUserTypingInInput() {
+      const active = document.activeElement;
+      if (!active) return false;
+      const tag = (active.tagName || "").toUpperCase();
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+    }
+    window.addEventListener("focus", () => {
+      if (!autoDemoRunning && !showNewProjectForm && !isUserTypingInInput()) {
+        loadState(false);
+      }
+    });
+    setInterval(() => {
+      if (!document.hidden && !autoDemoRunning && !showNewProjectForm && !isUserTypingInInput()) {
+        loadState(false);
+      }
+    }, 8000);
 
     async function saveConfigFromGUI() {
       const selChain = document.getElementById("cfg-chain-mode") ? document.getElementById("cfg-chain-mode").value : chainDisplayMode;
@@ -1288,6 +1381,20 @@
     }
 
     function render() {
+      const legalBadge = document.getElementById("legal-badge-label");
+      const legalBanner = document.getElementById("legal-banner-text");
+      const legalFooter = document.getElementById("legal-footer-text");
+      if (legalBadge && legalBanner && legalFooter) {
+        if (lang === "en") {
+          legalBadge.textContent = "DEMO / SANDBOX ENVIRONMENT";
+          legalBanner.innerHTML = `<strong>Legal Notice:</strong> This portal is an open-source technology demonstration and sandbox prototype developed by <strong>Guaria Verde</strong>. Any institution names, projects, resolutions, and transactions displayed are configurable sample profiles on Testnet/Sandbox and do not represent an active official fundraising campaign or binding government affiliation.`;
+          legalFooter.innerHTML = `<strong>Legal Disclaimer:</strong> WaysToBuildIt is provided under the open-source Apache-2.0 License "AS-IS" for technical demonstration and digital public infrastructure research. No municipal or government entity shown as a default sample profile (including Municipalidad de Montes de Oca) endorses, sponsors, or collects real funds through this demonstration Sandbox. Do not send real funds or confidential personal data.`;
+        } else {
+          legalBadge.textContent = "ENTORNO DEMO / SANDBOX";
+          legalBanner.innerHTML = `<strong>Aviso Legal:</strong> Este portal es un entorno de demostración tecnológica y prototipo de código abierto desarrollado por <strong>Guaria Verde</strong>. Los nombres de instituciones, proyectos, resoluciones y transacciones mostrados son perfiles demostrativos configurables en red de pruebas (Testnet / Sandbox) y no constituyen una recaudación oficial activa ni afiliación gubernamental vinculante.`;
+          legalFooter.innerHTML = `<strong>Descargo de Responsabilidad Legal (Disclaimer):</strong> WaysToBuildIt se distribuye bajo licencia abierta Apache-2.0 "TAL CUAL" (AS-IS) con fines de demostración técnica e investigación de infraestructura pública digital. Ninguna entidad municipal o gubernamental mencionada como perfil de ejemplo (incluyendo la Municipalidad de Montes de Oca) avala, patrocina ni recauda fondos reales a través de este entorno Sandbox de demostración. No envíe fondos reales ni datos personales confidenciales.`;
+        }
+      }
       document.getElementById("tab-giver").textContent = t("roleGiver");
       document.getElementById("tab-contractor").textContent = t("roleContractor");
       document.getElementById("tab-inspector").textContent = t("roleInspector");
@@ -1364,18 +1471,18 @@
       if (allProjects.length === 0) return `<div class="card">No hay proyectos activos.</div>`;
       const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
       selectedProjectId = proj.id;
-      const esc = proj.escrow;
-      const totalTarget = esc.Milestones.reduce((acc, m) => acc + m.Amount, 0);
-      const funded = esc.FundedAmount;
+      const escObj = proj.escrow;
+      const totalTarget = escObj.Milestones.reduce((acc, m) => acc + m.Amount, 0);
+      const funded = escObj.FundedAmount;
       const pct = totalTarget > 0 ? Math.min(100, Math.round((funded / totalTarget) * 100)) : 0;
       const title = lang === "es-CR" ? proj.title_es : proj.title_en;
       const loc = lang === "es-CR" ? proj.location_es : proj.location_en;
-      const contribs = esc.Contributions || [];
+      const contribs = escObj.Contributions || [];
 
       const switcherPills = allProjects.map(item => {
         const isSel = item.id === proj.id;
-        const itemTitle = lang === "es-CR" ? item.title_es : item.title_en;
-        return `<button class="${isSel ? 'btn-navy' : 'btn-chip'}" style="font-size:0.78rem;padding:0.4rem 0.75rem;" onclick="selectActiveProject('${item.id}')">${itemTitle}</button>`;
+        const itemTitle = esc(lang === "es-CR" ? item.title_es : item.title_en);
+        return `<button class="${isSel ? 'btn-navy' : 'btn-chip'}" style="font-size:0.78rem;padding:0.4rem 0.75rem;" onclick="selectActiveProject('${esc(item.id)}')">${itemTitle}</button>`;
       }).join("");
 
       const canCreateProj = (role === "committee" || role === "sysadmin");
@@ -1427,10 +1534,10 @@
         ${createProjPanelHTML}
       ` : "";
 
-      const milestonesHTML = esc.Milestones.map((m, idx) => {
+      const milestonesHTML = escObj.Milestones.map((m, idx) => {
         const meta = proj.milestone_metadata[idx] || {};
-        const mTitle = lang === "es-CR" ? meta.title_es : meta.title_en;
-        const mDesc = lang === "es-CR" ? meta.description_es : meta.description_en;
+        const mTitle = esc(lang === "es-CR" ? meta.title_es : meta.title_en);
+        const mDesc = esc(lang === "es-CR" ? meta.description_es : meta.description_en);
         const sharePct = totalTarget > 0 ? Math.round((m.Amount / totalTarget) * 100) : 0;
         const isOpen = !!openMilestoneDetails[idx];
 
@@ -1473,9 +1580,9 @@
         } else if (role === "inspector" && m.Submitted && !m.Verified) {
           roleButtons = `<button class="btn-navy" onclick="milestoneAct('${proj.id}', ${idx}, 'verify')">${t("verifyBtn")}</button>`;
         } else if (role === "committee") {
-          if (m.Submitted && !m.Released && (!esc.Verifier || m.Verified)) {
+          if (m.Submitted && !m.Released && (!escObj.Verifier || m.Verified)) {
             roleButtons += `<button class="btn-emerald" onclick="milestoneAct('${proj.id}', ${idx}, 'approve')">${t("approveBtn")}</button> `;
-          } else if (m.Submitted && !m.Released && esc.Verifier && !m.Verified) {
+          } else if (m.Submitted && !m.Released && escObj.Verifier && !m.Verified) {
             roleButtons += `<div style="font-size:0.8rem;color:#92400E;background:#FEF3C7;padding:0.4rem 0.65rem;border-radius:6px;">Requiere verificación del Inspector antes de aprobar el pago.</div>`;
           }
           if (m.Released && !m.HasSettlementReceipt) {
@@ -1502,11 +1609,11 @@
                 </div>
                 <div>
                   <div class="detail-label">Contratista Responsable</div>
-                  <div class="detail-val">${proj.contractor_display_name}</div>
+                  <div class="detail-val">${esc(proj.contractor_display_name)}</div>
                 </div>
                 <div>
                   <div class="detail-label">Inspector Verificador</div>
-                  <div class="detail-val">${proj.inspector_display_name}</div>
+                  <div class="detail-val">${esc(proj.inspector_display_name)}</div>
                 </div>
               </div>
               ${m.HasEvidence ? `
@@ -1526,9 +1633,9 @@
 
       const recentDonorsHTML = contribs.slice(-4).reverse().map(c => `
         <div class="donor-feed-item">
-          <div class="donor-avatar">${(c.Donor || "A")[0].toUpperCase()}</div>
+          <div class="donor-avatar">${esc((c.Donor || "A")[0].toUpperCase())}</div>
           <div>
-            <div style="font-weight:700;color:var(--navy);">${c.Donor}</div>
+            <div style="font-weight:700;color:var(--navy);">${esc(c.Donor)}</div>
             <div style="font-size:0.78rem;color:var(--slate);">Aportó <strong>${fmtMoneyDual(c.Amount)}</strong></div>
           </div>
         </div>
@@ -1538,7 +1645,7 @@
 
       const rightSidebarHTML = `
         <div class="card sticky-sidebar">
-          <span class="badge badge-emerald" style="margin-bottom:0.6rem;">${friendlyEscrowStatus(esc.Status)}</span>
+          <span class="badge badge-emerald" style="margin-bottom:0.6rem;">${friendlyEscrowStatus(escObj.Status)}</span>
           <div class="gfm-raised-big">${fmtMoney(funded)} <div class="gfm-goal-sub">${t("raisedOf")} ${fmtMoneyDual(totalTarget)}</div></div>
           <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;"></div></div>
           <div style="font-size:0.82rem;color:var(--slate);margin-bottom:1rem;">
@@ -1611,9 +1718,9 @@
         ${projectSelectorBar}
         <div class="campaign-layout">
           <div>
-            ${solarParkHeroSVG(loc, proj.approved_resolution)}
+            ${solarParkHeroSVG(esc(loc), esc(proj.approved_resolution))}
             <div class="card">
-              <h1 style="font-size:1.45rem;color:var(--navy);margin-bottom:0.5rem;">${title}</h1>
+              <h1 style="font-size:1.45rem;color:var(--navy);margin-bottom:0.5rem;">${esc(title)}</h1>
               <p style="font-size:0.92rem;color:#334155;">${t("storyText")}</p>
               <h2 style="margin-top:1.35rem;font-size:1.05rem;">${t("milestonesHeading")}</h2>
               ${milestonesHTML}
@@ -1635,7 +1742,7 @@
           : `<span class="badge badge-navy">Oferta Sellada</span>`;
         return `
           <tr>
-            <td>${b.Bidder}</td>
+            <td>${esc(b.Bidder)}</td>
             <td>${amountDisplay}</td>
             <td>${b.Winner ? '<span class="badge badge-emerald">ADJUDICADO (EN ESCROW)</span>' : (b.Refunded ? '<span class="badge badge-amber">REEMBOLSADO 100%</span>' : '<span class="badge badge-navy">SOBRE CERRADO</span>')}</td>
           </tr>
@@ -1859,14 +1966,25 @@
     function renderInstitutionProfilePage(p) {
       const allProjects = p.projects || [];
       const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
-      const esc = proj ? proj.escrow : null;
-      const totalTarget = esc ? esc.Milestones.reduce((acc, m) => acc + m.Amount, 0) : 0;
-      const funded = esc ? esc.FundedAmount : 0;
-      const released = esc ? esc.ReleasedAmount : 0;
+      const escObj = proj ? proj.escrow : null;
+      const totalTarget = escObj ? escObj.Milestones.reduce((acc, m) => acc + m.Amount, 0) : 0;
+      const funded = escObj ? escObj.FundedAmount : 0;
+      const released = escObj ? escObj.ReleasedAmount : 0;
 
-      const auditRows = (p.bridge.AuditTrail || []).map(r => `
+      const allAudit = p.bridge.AuditTrail || [];
+      const filteredAudit = allAudit
+        .filter(r => {
+          if (auditTableRailFilter !== "ALL" && r.Rail !== auditTableRailFilter) return false;
+          if (!auditTableSearch) return true;
+          const q = auditTableSearch.toLowerCase();
+          return String(r.Donor || "").toLowerCase().includes(q) || String(r.Rail || "").toLowerCase().includes(q);
+        })
+        .slice()
+        .sort((a, b) => auditTableSortDesc ? (b.NetEscrowUnits - a.NetEscrowUnits) : (a.NetEscrowUnits - b.NetEscrowUnits));
+
+      const auditRows = filteredAudit.map(r => `
         <tr>
-          <td>${r.Donor}</td>
+          <td>${esc(r.Donor)}</td>
           <td>${r.Rail === "SINPE_MOVIL" ? "SINPE Móvil (CRC)" : "Tarjeta (USD)"}</td>
           <td><strong>${fmtMoneyDual(r.NetEscrowUnits)}</strong></td>
           <td><span class="badge badge-emerald">${r.Verified ? "✓ Verificado" : "Pendiente"}</span></td>
@@ -1908,7 +2026,19 @@
             </div>
           </div>
           ${allocBtn}
-          <h3 style="font-size:0.95rem;color:var(--navy);margin-top:0.5rem;">${t("auditTitle")}</h3>
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-top:0.5rem;margin-bottom:0.45rem;">
+            <h3 style="font-size:0.95rem;color:var(--navy);margin:0;">${t("auditTitle")} (${filteredAudit.length})</h3>
+            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;align-items:center;">
+              <input id="audit-search-inp" placeholder="Filtrar donante o vía..." value="${esc(auditTableSearch)}" oninput="setAuditTableSearch(this.value)" style="font-size:0.78rem;padding:0.35rem 0.6rem;width:170px;" />
+              <select onchange="setAuditTableRail(this.value)" style="font-size:0.78rem;padding:0.35rem 0.5rem;">
+                <option value="ALL" ${auditTableRailFilter === 'ALL' ? 'selected' : ''}>Todas las Vías</option>
+                <option value="SINPE_MOVIL" ${auditTableRailFilter === 'SINPE_MOVIL' ? 'selected' : ''}>SINPE Móvil (CRC)</option>
+                <option value="REGULATED_ONRAMP_CARD" ${auditTableRailFilter === 'REGULATED_ONRAMP_CARD' ? 'selected' : ''}>Tarjeta (USD)</option>
+              </select>
+              <button class="btn-chip" style="font-size:0.76rem;padding:0.35rem 0.6rem;" onclick="toggleAuditTableSort()">Ordenar Monto ${auditTableSortDesc ? "↓" : "↑"}</button>
+              ${(role === "committee" || role === "sysadmin") ? `<button class="btn-navy btn-sm" style="font-size:0.76rem;padding:0.35rem 0.65rem;" onclick="exportAuditTableCSV()">Exportar CSV (Auditoría)</button>` : ""}
+            </div>
+          </div>
           <table>
             <thead><tr><th>Donante</th><th>Vía</th><th>Neto en Escrow</th><th>Comprobante</th></tr></thead>
             <tbody>${auditRows || '<tr><td colspan="4" style="color:var(--slate);">Sin aportes registrados aún.</td></tr>'}</tbody>
@@ -1969,7 +2099,7 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
 2. ORDEN DEL DÍA AUTOGENERADO POR ESTADO DEL CONTRATO:
    • Proyecto Activo: ${proj ? proj.title_es : "N/A"} (${proj ? proj.id : "N/A"})
    • Presupuesto en Garantía (Escrow): ${fmtMoney(funded)} recaudados de ${fmtMoney(totalTarget)} (${ fmtMoney(released) } liberados)
-   • Hitos Certificados por Inspección Técnica: ${esc ? esc.Milestones.filter(m => m.Verified).length : 0} de ${esc ? esc.Milestones.length : 0}
+   • Hitos Certificados por Inspección Técnica: ${escObj ? escObj.Milestones.filter(m => m.Verified).length : 0} de ${escObj ? escObj.Milestones.length : 0}
    • Estado del Fondo Público del Comité: ${fmtMoney(p.committee_fund.Balance)} disponibles
 3. ACUERDO FIRME Y ANCLAJE CRIPTOGRÁFICO:
    Se aprueba en firme la resolución ${proj ? (proj.approved_resolution || "ACTA-JUNTA-2026-042") : "ACTA-JUNTA-2026-042"} para habilitar y respaldar la ejecución por hitos verificados en WaysToBuildIt.</div>
@@ -2068,6 +2198,49 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
     function toggleSmartActaPreview() {
       const el = document.getElementById("smart-acta-preview");
       if (el) el.style.display = el.style.display === "none" ? "block" : "none";
+    }
+
+    function setAuditTableSearch(val) {
+      auditTableSearch = val || "";
+      render();
+      const inp = document.getElementById("audit-search-inp");
+      if (inp) {
+        inp.focus();
+        inp.setSelectionRange(inp.value.length, inp.value.length);
+      }
+    }
+
+    function setAuditTableRail(val) {
+      auditTableRailFilter = val || "ALL";
+      render();
+    }
+
+    function toggleAuditTableSort() {
+      auditTableSortDesc = !auditTableSortDesc;
+      render();
+    }
+
+    function exportAuditTableCSV() {
+      if (role !== "committee" && role !== "sysadmin") {
+        return;
+      }
+      const sanitizeCSVCell = (val) => {
+        const s = String(val || "").replace(/"/g, '""');
+        // Prevent CSV Formula Injection (=, +, -, @) in Excel / Google Sheets
+        return /^[=+\-@]/.test(s) ? `"'${s}"` : `"${s}"`;
+      };
+      const trail = (appState && appState.platform && appState.platform.bridge && appState.platform.bridge.AuditTrail) || [];
+      const header = "DonorAlias,Rail,Currency,GrossUnits,HostingFeeUnits,NetEscrowUnits,Verified\n";
+      const rows = trail.map(r =>
+        `${sanitizeCSVCell(r.Donor)},${sanitizeCSVCell(r.Rail)},${sanitizeCSVCell(r.Currency)},${r.GrossUnits || 0},${r.HostingFeeUnits || 0},${r.NetEscrowUnits || 0},${r.Verified ? "true" : "false"}`
+      ).join("\n");
+      const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `waystobuildit_audit_ledger_${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
 
     function selectActiveProject(id) {
