@@ -597,6 +597,7 @@
 
   <script>
     let lang = "es-CR";
+    let langInitializedFromConfig = false;
     let role = "giver";
     let currentPage = "projects";
     let currentUserName = "Vecina María";
@@ -1329,11 +1330,14 @@
 
     async function saveConfigFromGUI() {
       const selChain = document.getElementById("cfg-chain-mode") ? document.getElementById("cfg-chain-mode").value : chainDisplayMode;
+      const selLocale = document.getElementById("cfg-locale") ? document.getElementById("cfg-locale").value : lang;
       chainDisplayMode = selChain;
+      lang = selLocale === "en" ? "en" : "es-CR";
       await apiCall("/api/v1/config", {
         organization_name: document.getElementById("cfg-name").value,
         tenant_id: document.getElementById("cfg-tenant").value,
         jurisdiction_label: document.getElementById("cfg-jurisdiction").value,
+        default_locale: selLocale,
         committee_account: document.getElementById("cfg-committee").value,
         exchange_rate_crc_per_usd: Number(document.getElementById("cfg-fx-rate").value || 512),
         exchange_rate_source: document.getElementById("cfg-fx-source").value || "Banco Central de Costa Rica (BCCR — Referencia MONEX)",
@@ -1421,6 +1425,10 @@
       }
 
       const p = appState.platform;
+      if (!langInitializedFromConfig && p.config && p.config.default_locale) {
+        lang = p.config.default_locale === "en" ? "en" : "es-CR";
+        langInitializedFromConfig = true;
+      }
       if (p.config.exchange_rate_crc_per_usd) fxRateCRC = p.config.exchange_rate_crc_per_usd;
       if (p.config.exchange_rate_source) fxSource = p.config.exchange_rate_source;
       if (p.config.exchange_rate_updated_at) fxUpdated = p.config.exchange_rate_updated_at;
@@ -2142,62 +2150,86 @@
           <div style="margin-top:1.5rem;padding:1.15rem;border-radius:10px;background:#F8FAFC;border:1px solid #CBD5E1;">
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.75rem;">
               <div>
-                <h3 style="margin:0;font-size:0.98rem;color:var(--navy);">Junta y Actas Inteligentes del Comité (Quórum, Orden del Día y Conector CONSUL)</h3>
+                <h3 style="margin:0;font-size:0.98rem;color:var(--navy);">${lang === "en" ? "Clara — Smart Board & Minutes Assistant (Quorum, Auto-Agenda & CONSUL Connector)" : "Clara — Asistente de Junta y Actas Inteligentes del Comité (Quórum, Orden del Día y Conector CONSUL)"}</h3>
                 <div style="font-size:0.78rem;color:var(--slate);margin-top:0.15rem;">
-                  Sistema 100% propio y sin suscripciones externas: redacta automáticamente el <strong>Orden del Día</strong> según el estado real de los hitos y subastas, registra el <strong>Quórum del Comité</strong> y ancla el <strong>Acta Oficial (SHA-256)</strong> o resoluciones de <strong>CONSUL Democracy</strong> en el contrato.
+                  ${lang === "en"
+                    ? `100% native and subscription-free: <strong>Clara</strong> automatically drafts the <strong>Meeting Agenda</strong> in the active system language (<code>English</code>) based on real milestone and auction states, records <strong>Committee Quorum</strong>, and anchors the <strong>Official Minutes (SHA-256)</strong> or <strong>CONSUL Democracy</strong> resolutions on-chain.`
+                    : `Sistema 100% propio y sin suscripciones externas: <strong>Clara</strong> redacta automáticamente el <strong>Orden del Día</strong> en el idioma activo del sistema (<code>Español</code>) según el estado real de los hitos y subastas, registra el <strong>Quórum del Comité</strong> y ancla el <strong>Acta Oficial (SHA-256)</strong> o resoluciones de <strong>CONSUL Democracy</strong> en el contrato.`}
                 </div>
               </div>
-              <span class="badge badge-emerald">HMAC-SHA256 + 2FA Protegido</span>
+              <span class="badge badge-emerald">${lang === "en" ? "HMAC-SHA256 + 2FA Protected" : "HMAC-SHA256 + 2FA Protegido"}</span>
             </div>
 
             <div class="grid-3" style="margin-bottom:0.75rem;">
               <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">1. Orden del Día Autogenerado</strong>
+                <strong style="color:var(--navy);">${lang === "en" ? "1. Auto-Generated Agenda (by Clara)" : "1. Orden del Día Autogenerado (por Clara)"}</strong>
                 <ul style="margin:0.35rem 0 0 1.1rem;padding:0;color:var(--slate);line-height:1.45;">
-                  <li>Verificación de quórum de Junta / Comité</li>
-                  <li>Revisión de hitos certificados por Inspector (SHA-256)</li>
-                  <li>Adjudicación y traslado de fondos de Subastas</li>
-                  <li>Arrastre automático de acuerdos pendientes</li>
+                  <li>${lang === "en" ? "Board / Committee quorum verification" : "Verificación de quórum de Junta / Comité"}</li>
+                  <li>${lang === "en" ? "Review of Inspector-certified milestones (SHA-256)" : "Revisión de hitos certificados por Inspector (SHA-256)"}</li>
+                  <li>${lang === "en" ? "Awarding and transfer of Auction (Subasta) proceeds" : "Adjudicación y traslado de fondos de Subastas"}</li>
+                  <li>${lang === "en" ? "Automatic carry-forward of pending action items" : "Arrastre automático de acuerdos pendientes"}</li>
                 </ul>
               </div>
               <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">2. Votación de Quórum (3/3 Miembros)</strong>
+                <strong style="color:var(--navy);">${lang === "en" ? "2. Quorum Voting (3/3 Members)" : "2. Votación de Quórum (3/3 Miembros)"}</strong>
                 <div style="color:var(--slate);margin-top:0.25rem;line-height:1.45;">
-                  <div>• Presidencia del Comité: <span id="quorum-v1" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
-                  <div>• Tesorería / Finanzas: <span id="quorum-v2" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
-                  <div>• Secretaría de Actas: <span id="quorum-v3" style="color:var(--emerald);font-weight:600;">Aprobado</span></div>
+                  <div>• ${lang === "en" ? "Committee Chair:" : "Presidencia del Comité:"} <span id="quorum-v1" style="color:var(--emerald);font-weight:600;">${lang === "en" ? "Approved" : "Aprobado"}</span></div>
+                  <div>• ${lang === "en" ? "Treasury / Finance:" : "Tesorería / Finanzas:"} <span id="quorum-v2" style="color:var(--emerald);font-weight:600;">${lang === "en" ? "Approved" : "Aprobado"}</span></div>
+                  <div>• ${lang === "en" ? "Board Secretary:" : "Secretaría de Actas:"} <span id="quorum-v3" style="color:var(--emerald);font-weight:600;">${lang === "en" ? "Approved" : "Aprobado"}</span></div>
                 </div>
               </div>
               <div style="padding:0.75rem;background:#FFFFFF;border-radius:8px;border:1px solid #E2E8F0;font-size:0.77rem;">
-                <strong style="color:var(--navy);">3. Conector CONSUL Democracy</strong>
+                <strong style="color:var(--navy);">${lang === "en" ? "3. Ask Clara & CONSUL Connector" : "3. Consulta a Clara y Conector CONSUL"}</strong>
                 <div style="color:var(--slate);margin-top:0.25rem;line-height:1.45;">
-                  Compatible con presupuestos participativos open-source vía <code>POST /api/v1/governance/webhook</code> con verificación criptográfica <code>HMAC-SHA256</code> en tiempo constante.
+                  ${lang === "en"
+                    ? `Ask Clara about quorum, milestones, or resolutions in English, or sync participatory budgets via <code>POST /api/v1/governance/webhook</code> (<code>HMAC-SHA256</code>).`
+                    : `Consulta a Clara sobre quórum, hitos o resoluciones en Español, o sincroniza presupuestos participativos vía <code>POST /api/v1/governance/webhook</code> (<code>HMAC-SHA256</code>).`}
                 </div>
               </div>
             </div>
 
+            <div style="display:flex;gap:0.45rem;margin-bottom:0.65rem;flex-wrap:wrap;">
+              <input id="clara-question-inp" placeholder="${lang === "en" ? "Ask Clara about the board agenda, quorum, or milestone status..." : "Pregúntale a Clara sobre el orden del día, quórum o estado de los hitos..."}" style="flex:1;min-width:220px;font-size:0.78rem;padding:0.45rem 0.7rem;" onkeydown="if(event.key==='Enter') askClaraAssistant()" />
+              <button class="btn-navy btn-sm" onclick="askClaraAssistant()">${lang === "en" ? "Ask Clara" : "Consultar a Clara"}</button>
+            </div>
+            <div id="clara-answer-box" style="display:none;margin-bottom:0.65rem;padding:0.65rem 0.85rem;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;font-size:0.78rem;color:#065F46;line-height:1.45;"></div>
+
             <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;font-size:0.78rem;background:#FFFFFF;padding:0.6rem 0.8rem;border-radius:8px;border:1px solid #E2E8F0;">
-              <div><strong>Resolución / Acta Anclada en Escrow:</strong> <code>${proj ? (proj.approved_resolution || "Pendiente") : "N/A"}</code></div>
+              <div><strong>${lang === "en" ? "Resolution / Minutes Anchored in Escrow:" : "Resolución / Acta Anclada en Escrow:"}</strong> <code>${proj ? (proj.approved_resolution || (lang === "en" ? "Pending" : "Pendiente")) : "N/A"}</code></div>
               <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
-                <button class="btn-navy btn-sm" onclick="toggleSmartActaPreview()">Ver Borrador de Acta Oficial</button>
+                <button class="btn-navy btn-sm" onclick="toggleSmartActaPreview()">${lang === "en" ? "View Official Minutes Draft (Clara)" : "Ver Borrador de Acta Oficial (Clara)"}</button>
                 ${(role === "committee" || role === "sysadmin") ? `
-                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('Acta Oficial de Junta / Comité', 'ACTA-JUNTA-2026-042')">Firmar y Anclar Acta Nativa (SHA-256)</button>
-                  <button class="btn-amber btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">Sincronizar Resolución CONSUL</button>
-                ` : `<span style="color:var(--slate);font-size:0.74rem;align-self:center;">Autentícate como Comité para firmar actas</span>`}
+                  <button class="btn-emerald btn-sm" onclick="simulateGovernanceWebhook('${lang === "en" ? "Official Board Minutes (Clara)" : "Acta Oficial de Junta / Comité (Clara)"}', 'ACTA-JUNTA-2026-042')">${lang === "en" ? "Sign & Anchor Native Minutes (SHA-256)" : "Firmar y Anclar Acta Nativa (SHA-256)"}</button>
+                  <button class="btn-amber btn-sm" onclick="simulateGovernanceWebhook('CONSUL Participatory Budget', 'RES-CONSUL-MDO-2026-089')">${lang === "en" ? "Sync CONSUL Resolution" : "Sincronizar Resolución CONSUL"}</button>
+                ` : `<span style="color:var(--slate);font-size:0.74rem;align-self:center;">${lang === "en" ? "Sign in as Committee to anchor minutes" : "Autentícate como Comité para firmar actas"}</span>`}
               </div>
             </div>
 
-            <div id="smart-acta-preview" style="display:none;margin-top:0.75rem;padding:0.9rem;background:#FFFFFF;border-radius:8px;border:1px dashed var(--navy);font-family:monospace;font-size:0.76rem;color:#1E293B;white-space:pre-wrap;line-height:1.5;">ACTA OFICIAL DE JUNTA / COMITÉ — ${p.config.organization_name.toUpperCase()}
-Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOString().slice(0, 10)}
+            <div id="smart-acta-preview" style="display:none;margin-top:0.75rem;padding:0.9rem;background:#FFFFFF;border-radius:8px;border:1px dashed var(--navy);font-family:monospace;font-size:0.76rem;color:#1E293B;white-space:pre-wrap;line-height:1.5;">${lang === "en"
+? `OFFICIAL BOARD / COMMITTEE MINUTES (DRAFTED BY CLARA) — ${p.config.organization_name.toUpperCase()}
+Jurisdiction: ${p.config.jurisdiction_label} | UTC Date: ${new Date().toISOString().slice(0, 10)} | System Language: English (en)
+--------------------------------------------------------------------------------
+1. QUORUM VERIFICATION: Legal quorum confirmed (3/3 voting members present: Chair, Treasury, Secretary).
+2. AUTO-GENERATED AGENDA FROM LIVE SMART CONTRACT STATE:
+   • Active Project: ${proj ? proj.title_en : "N/A"} (${proj ? proj.id : "N/A"})
+   • Governance Stage: ${proj ? (proj.governance_stage || "active").toUpperCase() : "ACTIVE"} (Votes: ${proj ? (proj.approval_votes || 5) : 5}/${proj ? (proj.required_votes || 3) : 3})
+   • Escrow Budget Locked: ${fmtMoney(funded)} raised of ${fmtMoney(totalTarget)} (${fmtMoney(released)} released)
+   • Technical Milestones Certified by Inspector: ${escObj ? escObj.Milestones.filter(m => m.Verified).length : 0} of ${escObj ? escObj.Milestones.length : 0}
+   • Institutional Public Fund Available: ${fmtMoney(p.committee_fund.Balance)}
+3. BINDING RESOLUTION & CRYPTOGRAPHIC ANCHOR:
+   Resolution ${proj ? (proj.approved_resolution || "ACTA-JUNTA-2026-042") : "ACTA-JUNTA-2026-042"} is formally approved to authorize and back verified milestone execution on WaysToBuildIt.`
+: `ACTA OFICIAL DE JUNTA / COMITÉ (REDACTADA POR CLARA) — ${p.config.organization_name.toUpperCase()}
+Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOString().slice(0, 10)} | Idioma del Sistema: Español (es-CR)
 --------------------------------------------------------------------------------
 1. VERIFICACIÓN DE QUÓRUM: Quórum legal confirmado (3/3 miembros presentes: Presidencia, Tesorería, Secretaría).
 2. ORDEN DEL DÍA AUTOGENERADO POR ESTADO DEL CONTRATO:
    • Proyecto Activo: ${proj ? proj.title_es : "N/A"} (${proj ? proj.id : "N/A"})
-   • Presupuesto en Garantía (Escrow): ${fmtMoney(funded)} recaudados de ${fmtMoney(totalTarget)} (${ fmtMoney(released) } liberados)
+   • Fase de Gobernanza: ${proj ? (proj.governance_stage || "active").toUpperCase() : "ACTIVE"} (Votos: ${proj ? (proj.approval_votes || 5) : 5}/${proj ? (proj.required_votes || 3) : 3})
+   • Presupuesto en Garantía (Escrow): ${fmtMoney(funded)} recaudados de ${fmtMoney(totalTarget)} (${fmtMoney(released)} liberados)
    • Hitos Certificados por Inspección Técnica: ${escObj ? escObj.Milestones.filter(m => m.Verified).length : 0} de ${escObj ? escObj.Milestones.length : 0}
    • Estado del Fondo Público del Comité: ${fmtMoney(p.committee_fund.Balance)} disponibles
 3. ACUERDO FIRME Y ANCLAJE CRIPTOGRÁFICO:
-   Se aprueba en firme la resolución ${proj ? (proj.approved_resolution || "ACTA-JUNTA-2026-042") : "ACTA-JUNTA-2026-042"} para habilitar y respaldar la ejecución por hitos verificados en WaysToBuildIt.</div>
+   Se aprueba en firme la resolución ${proj ? (proj.approved_resolution || "ACTA-JUNTA-2026-042") : "ACTA-JUNTA-2026-042"} para habilitar y respaldar la ejecución por hitos verificados en WaysToBuildIt.`}</div>
           </div>
         </div>
       `;
@@ -2216,6 +2248,10 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
             <input id="cfg-name" placeholder="Nombre de la Organización" value="${c.organization_name || ''}" style="flex:2;" />
             <input id="cfg-tenant" placeholder="Tenant ID" value="${c.tenant_id || ''}" style="flex:1;" />
             <input id="cfg-jurisdiction" placeholder="Jurisdicción" value="${c.jurisdiction_label || ''}" style="flex:1.5;" />
+            <select id="cfg-locale" style="width:130px;font-weight:600;" title="Idioma por defecto del Sistema y de Clara">
+              <option value="es-CR" ${(c.default_locale || lang) !== 'en' ? 'selected' : ''}>Español (es-CR)</option>
+              <option value="en" ${(c.default_locale || lang) === 'en' ? 'selected' : ''}>English (en)</option>
+            </select>
           </div>
           <div class="form-row">
             <input id="cfg-committee" placeholder="Cuenta del Comité" value="${c.committee_account || 'committee_multisig_key'}" />
@@ -2295,6 +2331,30 @@ Jurisdicción: ${p.config.jurisdiction_label} | Fecha UTC: ${new Date().toISOStr
     function toggleSmartActaPreview() {
       const el = document.getElementById("smart-acta-preview");
       if (el) el.style.display = el.style.display === "none" ? "block" : "none";
+    }
+
+    function askClaraAssistant() {
+      const inp = document.getElementById("clara-question-inp");
+      const box = document.getElementById("clara-answer-box");
+      if (!box) return;
+      const q = (inp ? inp.value : "").trim();
+      const p = (appState && appState.platform) || {};
+      const allProjects = p.projects || [];
+      const proj = allProjects.find(x => x.id === selectedProjectId) || allProjects[0];
+      const escObj = proj ? proj.escrow : null;
+      const totalTarget = escObj ? escObj.Milestones.reduce((acc, m) => acc + m.Amount, 0) : 0;
+      const funded = escObj ? escObj.FundedAmount : 0;
+      const released = escObj ? escObj.ReleasedAmount : 0;
+      const verifiedCount = escObj ? escObj.Milestones.filter(m => m.Verified).length : 0;
+      const totalMilestones = escObj ? escObj.Milestones.length : 0;
+      const govStage = proj ? (proj.governance_stage || "active") : "active";
+
+      if (lang === "en") {
+        box.innerHTML = `<strong>Clara (System Language: English):</strong> ${q ? `Regarding <em>"${esc(q)}"</em> — ` : ""}For project <strong>${esc(proj ? proj.title_en : "N/A")}</strong> (Stage: <code>${esc(govStage.toUpperCase())}</code>, Resolution: <code>${esc(proj ? proj.approved_resolution : "N/A")}</code>), quorum is confirmed (<strong>3/3</strong> voting members), <strong>${fmtMoney(funded)}</strong> of <strong>${fmtMoney(totalTarget)}</strong> is locked in on-chain Escrow (<strong>${fmtMoney(released)}</strong> disbursed), and <strong>${verifiedCount}/${totalMilestones}</strong> milestones have been certified by the independent Inspector with SHA-256 evidence.`;
+      } else {
+        box.innerHTML = `<strong>Clara (Idioma del Sistema: Español):</strong> ${q ? `Respecto a <em>"${esc(q)}"</em> — ` : ""}Para el proyecto <strong>${esc(proj ? proj.title_es : "N/A")}</strong> (Fase: <code>${esc(govStage.toUpperCase())}</code>, Resolución: <code>${esc(proj ? proj.approved_resolution : "N/A")}</code>), el quórum está confirmado (<strong>3/3</strong> miembros), hay <strong>${fmtMoney(funded)}</strong> de <strong>${fmtMoney(totalTarget)}</strong> resguardados en el contrato Escrow on-chain (<strong>${fmtMoney(released)}</strong> liberados), y <strong>${verifiedCount}/${totalMilestones}</strong> hitos cuentan con certificación SHA-256 del Inspector independiente.`;
+      }
+      box.style.display = "block";
     }
 
     function setAuditTableSearch(val) {
